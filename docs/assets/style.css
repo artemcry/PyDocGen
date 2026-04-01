@@ -1,12 +1,12 @@
-/* PyDocGen — Qt-docs-inspired 3-column layout */
+/* PyDocGen — Qt-docs-inspired dark theme */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 14px;
-  color: #2c2c2c;
-  background: #ffffff;
+  font-family: "Inter", "Source Sans 3", "DM Sans", system-ui, sans-serif;
+  font-size: 15px;
+  color: #E3E3E3;
+  background: #1a1a1a;
   line-height: 1.6;
 }
 
@@ -16,14 +16,15 @@ header {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 48px;
-  background: #1d6fa4;
+  background: #2d2d2d;
   color: #fff;
   display: flex;
   align-items: center;
   padding: 0 16px;
   gap: 12px;
   z-index: 200;
-  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  border-bottom: 1px solid #404040;
 }
 
 .project-name {
@@ -32,32 +33,36 @@ header {
   white-space: nowrap;
   color: #fff;
   padding-right: 12px;
-  border-right: 1px solid rgba(255,255,255,.3);
+  border-right: 1px solid rgba(255,255,255,.15);
 }
 
 .breadcrumb {
   flex: 1;
   font-size: 13px;
-  color: rgba(255,255,255,.8);
+  color: #888;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .breadcrumb a {
-  color: rgba(255,255,255,.75);
+  color: #888;
   text-decoration: none;
 }
-.breadcrumb a:hover { color: #fff; text-decoration: underline; }
+.breadcrumb a:hover { color: #ccc; text-decoration: underline; }
 
 .search input {
   padding: 5px 10px;
   border-radius: 4px;
-  border: none;
+  border: 1px solid #555;
+  background: #222;
+  color: #ccc;
   font-size: 13px;
   width: 200px;
   outline: none;
 }
+.search input::placeholder { color: #666; }
+.search input:focus { border-color: #5ba3c0; }
 
 /* ── Layout ──────────────────────────────────────────────── */
 
@@ -72,8 +77,8 @@ header {
 .sidebar-left {
   width: 240px;
   flex-shrink: 0;
-  background: #f5f6f8;
-  border-right: 1px solid #dde0e4;
+  background: #222;
+  border-right: 1px solid #383838;
   position: fixed;
   top: 48px; bottom: 0; left: 0;
   overflow-y: auto;
@@ -88,7 +93,6 @@ header {
 
 .nav-tree li { margin: 0; }
 
-/* top-level group indent */
 .nav-tree > li > .nav-label,
 .nav-tree > li > a {
   padding-left: 16px;
@@ -116,7 +120,7 @@ header {
   padding-top: 5px;
   padding-bottom: 5px;
   padding-right: 12px;
-  color: #333;
+  color: #999;
   text-decoration: none;
   font-size: 13px;
   border-left: 3px solid transparent;
@@ -134,14 +138,15 @@ header {
 }
 
 .nav-tree a:hover {
-  background: #e9ecf0;
-  color: #1d6fa4;
+  background: #2a2a2a;
+  color: #7ec8e3;
 }
 
-.nav-tree a.active {
-  background: #ddeaf5;
-  color: #1d6fa4;
-  border-left-color: #1d6fa4;
+.nav-tree a.active,
+.nav-tree a:active {
+  background: #1a3a4a;
+  color: #ffffff;
+  border-left-color: #5ba3c0;
   font-weight: 600;
 }
 
@@ -161,8 +166,8 @@ header {
 .sidebar-right {
   width: 220px;
   flex-shrink: 0;
-  background: #fafbfc;
-  border-left: 1px solid #dde0e4;
+  background: #222;
+  border-left: 1px solid #383838;
   position: fixed;
   top: 48px; bottom: 0; right: 0;
   overflow-y: auto;
@@ -174,7 +179,7 @@ header {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: #999;
+  color: #666;
   margin-bottom: 10px;
 }
 
@@ -187,23 +192,30 @@ header {
 .contents-sidebar li a {
   display: block;
   padding: 3px 0 3px 4px;
-  color: #555;
+  color: #888;
   text-decoration: none;
   font-size: 12px;
   line-height: 1.5;
   border-left: 2px solid transparent;
+  transition: color .1s, border-color .1s;
 }
 
 .contents-sidebar li.h3 a {
   padding-left: 14px;
-  color: #777;
+  color: #666;
   font-size: 11px;
 }
 
-.contents-sidebar li a:hover,
+.contents-sidebar li a:hover {
+  color: #ccc;
+  border-left-color: #555;
+}
+
 .contents-sidebar li a.current {
-  color: #1d6fa4;
-  border-left-color: #1d6fa4;
+  color: #ffffff;
+  background: #1a3a4a;
+  border-left-color: #5ba3c0;
+  font-weight: 600;
 }
 
 /* ── Typography ──────────────────────────────────────────── */
@@ -211,33 +223,33 @@ header {
 h1 {
   font-size: 26px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #E3E3E3;
   margin-bottom: 6px;
   padding-bottom: 10px;
-  border-bottom: 2px solid #e0e4ea;
+  border-bottom: 2px solid #383838;
 }
 
 h2 {
   font-size: 18px;
   font-weight: 700;
-  color: #1d6fa4;
+  color: #E3E3E3;
   margin-top: 36px;
   margin-bottom: 10px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #e0e4ea;
+  border-bottom: 1px solid #383838;
 }
 
 h3 {
   font-size: 15px;
   font-weight: 600;
-  color: #2c2c2c;
+  color: #E3E3E3;
   margin-top: 22px;
   margin-bottom: 6px;
 }
 
-p { margin-bottom: 12px; }
+p { margin-bottom: 12px; color: #E3E3E3; }
 
-a { color: #1d6fa4; text-decoration: none; }
+a { color: #74C0FC; text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* ── Tables ──────────────────────────────────────────────── */
@@ -250,36 +262,38 @@ table {
 }
 
 th {
-  background: #f0f2f5;
+  background: #262626;
   font-weight: 600;
   text-align: left;
   padding: 7px 12px;
-  border: 1px solid #d0d4da;
-  color: #444;
+  border: 1px solid #3a3a3a;
+  color: #bbb;
 }
 
 td {
   padding: 6px 12px;
-  border: 1px solid #dde0e4;
+  border: 1px solid #3a3a3a;
   vertical-align: top;
+  color: #E3E3E3;
 }
 
-tr:nth-child(even) td { background: #f9fafb; }
+tr:nth-child(even) td { background: #242424; }
 
 /* ── Code ────────────────────────────────────────────────── */
 
 code {
-  font-family: "Consolas", "SFMono-Regular", "Monaco", "Menlo", monospace;
-  font-size: 12px;
-  background: #f0f2f5;
-  border: 1px solid #dde0e4;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  background: #262626;
+  border: 1px solid #3a3a3a;
   border-radius: 3px;
   padding: 1px 5px;
+  color: #c9d1d9;
 }
 
 pre {
-  background: #f6f8fa;
-  border: 1px solid #dde0e4;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
   border-radius: 5px;
   padding: 14px 16px;
   overflow-x: auto;
@@ -291,45 +305,97 @@ pre code {
   background: none;
   border: none;
   padding: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-/* ── Method Details ──────────────────────────────────────── */
+/* ── Method Details — clear separation ───────────────────── */
+
+.method-details {
+  margin-top: 24px;
+}
 
 .method-detail {
-  border-top: 1px solid #e0e4ea;
-  padding: 18px 0 10px;
+  border: 1px solid #383838;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  background: #242424;
+  overflow: hidden;
 }
 
 .method-detail h3 {
-  font-family: "Consolas", "SFMono-Regular", "Monaco", "Menlo", monospace;
-  font-size: 13px;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
   font-weight: 600;
-  color: #1d6fa4;
-  margin-top: 0;
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  background: #f0f4f8;
-  border-left: 3px solid #1d6fa4;
-  border-radius: 2px;
+  color: #c9d1d9;
+  margin: 0;
+  padding: 10px 14px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #383838;
 }
 
-.params-table,
-.raises-table {
-  margin: 8px 0 4px;
+.method-detail h3 .method-name {
+  color: #74C0FC;
+}
+
+.method-detail h3 .method-params {
+  color: #888;
+  font-weight: 400;
+}
+
+.method-detail .method-body {
+  padding: 12px 14px;
+}
+
+.method-detail p {
+  margin-bottom: 10px;
   font-size: 13px;
 }
 
-.params-table th,
-.raises-table th {
-  background: #f5f6f8;
+.method-detail .params-table,
+.method-detail .raises-table {
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.method-detail .params-table th,
+.method-detail .raises-table th {
+  background: #262626;
   font-size: 12px;
 }
 
-.params-table td:first-child,
-.raises-table td:first-child {
+.method-detail .params-table td:first-child,
+.method-detail .raises-table td:first-child {
   white-space: nowrap;
   width: 1%;
+}
+
+.method-detail .returns-block {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #222;
+  border-left: 3px solid #5ba3c0;
+  font-size: 13px;
+}
+
+/* ── Scroll spy highlight ─────────────────────────────────── */
+
+.method-detail:target {
+  outline: 2px solid #5ba3c0;
+  outline-offset: 2px;
+}
+
+:target {
+  animation: highlight-fade 5s ease-out;
+}
+
+/* Scroll margin so fixed header doesn't cover headings */
+h1[id], h2[id], h3[id], .method-detail[id] {
+  scroll-margin-top: 64px;
+}
+
+@keyframes highlight-fade {
+  0% { background: #2c3e50; }
+  100% { background: transparent; }
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

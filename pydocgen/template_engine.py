@@ -557,9 +557,10 @@ def _render_methods_details(class_data) -> str:
         anchor = f"detail_{method.name}"
 
         html = f'<div class="method-detail">\n'
-        html += f'<h3 id="{anchor}">{sig}</h3>\n'
+        html += f'<h3 id="{anchor}"><span class="method-name">{method.name}</span><span class="method-params">({", ".join(a.name for a in method.args if a.name != "self")})</span></h3>\n'
+        html += f'<div class="method-body">\n'
 
-        desc = method.full_description or method.short_description
+        desc = method.short_description
         if desc:
             html += f'<p>{desc}</p>\n'
 
@@ -579,9 +580,9 @@ def _render_methods_details(class_data) -> str:
         if method.returns:
             ret_type = method.returns.type or method.return_type or ""
             type_str = f" <code>{ret_type}</code>" if ret_type else ""
-            html += f"<p><strong>Returns</strong>{type_str} — {method.returns.description}</p>\n"
+            html += f"<div class='returns-block'><strong>Returns</strong>{type_str} — {method.returns.description}</div>\n"
         elif method.return_type and method.return_type not in ('None', 'none'):
-            html += f"<p><strong>Returns</strong> <code>{method.return_type}</code></p>\n"
+            html += f"<div class='returns-block'><strong>Returns</strong> <code>{method.return_type}</code></div>\n"
 
         if method.raises:
             rows = []
@@ -594,6 +595,7 @@ def _render_methods_details(class_data) -> str:
                      f"<thead><tr><th>Raises</th><th>Description</th></tr></thead>\n"
                      f"<tbody>\n{''.join(rows)}\n</tbody>\n</table>\n")
 
+        html += '</div>\n'
         html += '</div>\n'
         parts.append(html)
 

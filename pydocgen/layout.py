@@ -172,9 +172,9 @@ def generate_contents_sidebar(html_content: str) -> str:
     """
     import re
 
-    # Find all h2 and h3 with their ids
-    pattern = r'<h([23])[^>]*id="([^"]+)"[^>]*>([^<]+)</h[23]>'
-    matches = re.findall(pattern, html_content)
+    # Find all h2 and h3 with their ids - capture inner text properly
+    pattern = r'<h([23])[^>]*id="([^"]+)"[^>]*>(.*?)</h[23]>'
+    matches = re.findall(pattern, html_content, re.DOTALL)
 
     if not matches:
         return ""
@@ -183,7 +183,9 @@ def generate_contents_sidebar(html_content: str) -> str:
     html += '<h4>Contents</h4>\n'
     html += '<ul>\n'
 
-    for level, anchor_id, text in matches:
+    for level, anchor_id, inner in matches:
+        # Strip all HTML tags to get plain text
+        text = re.sub(r'<[^>]+>', '', inner).strip()
         level_class = 'h2' if level == '2' else 'h3'
         html += f'<li class="{level_class}"><a href="#{anchor_id}">{text}</a></li>\n'
 
@@ -290,6 +292,42 @@ def assemble_page(
     </aside>
   </div>
   <script src="{prefix}assets/search.js"></script>
+  <script>
+(function() {{
+  // Scroll spy - highlight current section in contents sidebar
+  var tocLinks = document.querySelectorAll('.contents-sidebar a');
+  var headings = [];
+
+  // Collect all heading IDs
+  document.querySelectorAll('h2[id], h3[id], .method-detail[id]').forEach(function(el) {{
+    headings.push({{ id: el.id, el: el }});
+  }});
+
+  function highlightCurrent() {{
+    var scrollY = window.scrollY + 60;
+    var current = null;
+
+    for (var i = headings.length - 1; i >= 0; i--) {{
+      var h = headings[i].el;
+      if (h.offsetTop <= scrollY) {{
+        current = headings[i].id;
+        break;
+      }}
+    }}
+
+    tocLinks.forEach(function(link) {{
+      link.classList.remove('current');
+      if (current && link.getAttribute('href') === '#' + current) {{
+        link.classList.add('current');
+        link.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+      }}
+    }});
+  }}
+
+  window.addEventListener('scroll', highlightCurrent);
+  highlightCurrent();
+}})();
+  </script>
 </body>
 </html>'''
 
