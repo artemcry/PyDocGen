@@ -1,0 +1,29 @@
+param@CLASS_ID
+
+# {{class_name#%%CLASS_ID%%}}
+
+{{class_short_description#%%CLASS_ID%%}}
+
+## Info
+
+{{class_info#%%CLASS_ID%%}}
+
+## Properties
+
+{{properties#%%CLASS_ID%%}}
+
+## Public Methods
+
+{{public_methods_summary#%%CLASS_ID%%}}
+
+## Private Methods
+
+{{private_methods_summary#%%CLASS_ID%%}}
+
+## Detailed Description
+
+{{class_full_description#%%CLASS_ID%%}}
+
+## Method Details
+
+{{methods_details#%%CLASS_ID%%}}

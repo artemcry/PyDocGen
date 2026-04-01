@@ -1,0 +1,19 @@
+project_name: "MyProject"
+version: "1.0.0"
+output_dir: "build/docs/"
+templates_dir: "docs/templates/"
+assets_dir: "docs/assets/"
+docstring_style: "google"
+
+tree:
+  - title: "Introduction"
+    template: "introduction"
+
+  - title: "Getting Started"
+    children:
+      - title: "Installation"
+        template: "installation"
+
+  - title: "API Reference"
+    template: "introduction"
+    auto_source: "src/"

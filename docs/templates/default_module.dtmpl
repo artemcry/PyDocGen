@@ -1,0 +1,17 @@
+param@MODULE_DESCRIPTION=No description provided.
+
+# Module Overview
+
+%%MODULE_DESCRIPTION%%
+
+## Classes
+
+{{classes}}
+
+## Functions
+
+{{functions}}
+
+## Constants
+
+{{constants}}
