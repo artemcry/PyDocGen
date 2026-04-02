@@ -8,7 +8,7 @@ class TestBasicMarkdown:
 
     def test_basic_markdown(self):
         """# Title and paragraph text."""
-        from pydocgen.markdown_renderer import markdown_to_html
+        from slop_doc.markdown_renderer import markdown_to_html
 
         text = "# Title\nParagraph text"
         result = markdown_to_html(text)
@@ -18,7 +18,7 @@ class TestBasicMarkdown:
 
     def test_preserve_html(self):
         """Existing HTML is preserved."""
-        from pydocgen.markdown_renderer import markdown_to_html
+        from slop_doc.markdown_renderer import markdown_to_html
 
         text = "<div class='custom'>text</div>"
         result = markdown_to_html(text)
@@ -26,7 +26,7 @@ class TestBasicMarkdown:
 
     def test_mixed_content(self):
         """Markdown and HTML mixed correctly."""
-        from pydocgen.markdown_renderer import markdown_to_html
+        from slop_doc.markdown_renderer import markdown_to_html
 
         text = "## Header\n<div>html</div>\nMore **markdown**"
         result = markdown_to_html(text)
@@ -39,7 +39,7 @@ class TestHeadingAnchors:
 
     def test_heading_anchors(self):
         """## Public Methods becomes <h2 id="public-methods">Public Methods</h2>."""
-        from pydocgen.markdown_renderer import markdown_to_html
+        from slop_doc.markdown_renderer import markdown_to_html
 
         text = "## Public Methods"
         result = markdown_to_html(text)
@@ -47,7 +47,7 @@ class TestHeadingAnchors:
 
     def test_text_to_anchor_id(self):
         """Test the anchor id generation."""
-        from pydocgen.markdown_renderer import _text_to_anchor_id
+        from slop_doc.markdown_renderer import _text_to_anchor_id
 
         assert _text_to_anchor_id("Public Methods") == "public-methods"
         assert _text_to_anchor_id("API Reference") == "api-reference"
@@ -59,7 +59,7 @@ class TestCodeBlocks:
 
     def test_code_blocks(self):
         """Fenced code block with python."""
-        from pydocgen.markdown_renderer import markdown_to_html
+        from slop_doc.markdown_renderer import markdown_to_html
 
         text = "```python\nprint('hello')\n```"
         result = markdown_to_html(text)
@@ -72,7 +72,7 @@ class TestExtractHeadings:
 
     def test_extract_headings(self):
         """Extract h2 and h3 with their anchor ids."""
-        from pydocgen.markdown_renderer import extract_headings
+        from slop_doc.markdown_renderer import extract_headings
 
         html = '''
 <h2 id="public-methods">Public Methods</h2>

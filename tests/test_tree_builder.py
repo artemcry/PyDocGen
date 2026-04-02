@@ -3,7 +3,7 @@
 import os
 import tempfile
 import pytest
-from pydocgen.tree_builder import (
+from slop_doc.tree_builder import (
     Node, slugify, build_output_path, build_tree,
     TreeBuilderError
 )
@@ -54,13 +54,13 @@ tree:
   - title: "API Reference"
     template: "api-reference"
 '''
-            config_path = os.path.join(tmpdir, "docs_config.dcfg")
+            config_path = os.path.join(tmpdir, ".sdoc.tree")
             with open(config_path, 'w') as f:
                 f.write(config_content)
 
             # We can't fully test without a full build system,
             # but we can test the tree building logic directly
-            from pydocgen.tree_builder import build_tree_from_config, parse_main_config
+            from slop_doc.tree_builder import build_tree_from_config, parse_main_config
 
             config = parse_main_config(config_path)
             tree = build_tree_from_config(config['tree'], os.path.join(tmpdir, 'docs/templates'))
@@ -77,7 +77,7 @@ class TestSourceInheritance:
 
     def test_source_inheritance(self):
         """Parent node with source, child without explicit source."""
-        from pydocgen.tree_builder import build_tree_from_config
+        from slop_doc.tree_builder import build_tree_from_config
 
         tree_config = [
             {
@@ -100,7 +100,7 @@ class TestOutputPaths:
 
     def test_output_paths_nested(self):
         """Tree with nested nodes has correct output paths."""
-        from pydocgen.tree_builder import build_tree_from_config
+        from slop_doc.tree_builder import build_tree_from_config
 
         tree_config = [
             {
@@ -132,7 +132,7 @@ class TestBranchAttachment:
         """_docs.dcfg with branch: 'API Reference' attaches to 'API Reference' node."""
         # This requires a full integration test with auto_source
         # For unit testing, we test the _find_node_by_branch logic
-        from pydocgen.tree_builder import _find_node_by_branch
+        from slop_doc.tree_builder import _find_node_by_branch
 
         tree = [
             Node(title='Introduction', template='intro', children=[
@@ -147,7 +147,7 @@ class TestBranchAttachment:
 
     def test_branch_not_found(self):
         """_docs.dcfg with non-existent branch raises error."""
-        from pydocgen.tree_builder import _find_node_by_branch
+        from slop_doc.tree_builder import _find_node_by_branch
 
         tree = [
             Node(title='Introduction', template='intro', children=[])
@@ -164,13 +164,13 @@ class TestAutoSourceFolder:
         """Folders without _docs.dcfg are ignored."""
         # This would require setting up a directory structure
         # and testing find_docs_configs behavior
-        from pydocgen.tree_builder import find_docs_configs
+        from slop_doc.tree_builder import find_docs_configs
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create folder with _docs.dcfg
             folder_with = os.path.join(tmpdir, 'with_docs')
             os.makedirs(folder_with)
-            with open(os.path.join(folder_with, '_docs.dcfg'), 'w') as f:
+            with open(os.path.join(folder_with, '.sdoc'), 'w') as f:
                 f.write('title: Test\ntemplate: test\n')
 
             # Create folder without _docs.dcfg
@@ -179,9 +179,9 @@ class TestAutoSourceFolder:
 
             configs = find_docs_configs(tmpdir)
 
-            # Should only find the one with _docs.dcfg
+            # Should only find the one with .sdoc
             assert len(configs) == 1
-            assert '_docs.dcfg' in configs[0][0]
+            assert '.sdoc' in configs[0][0]
 
 
 class TestDirReference:

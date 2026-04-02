@@ -12,7 +12,3 @@ children:
     params:
       CLASS_ID: "%%__CLASS__%%"
   %%__CLASSES__%%
-  - title: "SU4ka test"
-    template: "su4ka"
-    params:
-      PIZSd: "YASSIR"

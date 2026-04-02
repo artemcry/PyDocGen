@@ -5,17 +5,60 @@ from __future__ import annotations
 import os
 import sys
 import argparse
+import importlib.resources
 
-from pydocgen.tree_builder import build_tree, Node, TreeBuilderError
-from pydocgen.template_engine import render_template, TemplateEngineError
-from pydocgen.cross_links import build_index, resolve_links, CrossLinkError, _get_folder_slug
-from pydocgen.markdown_renderer import markdown_to_html
-from pydocgen.layout import assemble_page, copy_assets, generate_search_index
+from slop_doc.tree_builder import build_tree, Node, TreeBuilderError
+from slop_doc.template_engine import render_template, TemplateEngineError
+from slop_doc.cross_links import build_index, resolve_links, CrossLinkError, _get_folder_slug
+from slop_doc.markdown_renderer import markdown_to_html
+from slop_doc.layout import assemble_page, generate_search_index
 
 
 class BuildError(Exception):
     """Raised when the build fails."""
     pass
+
+
+def _copy_assets_with_defaults(assets_dir: str, output_dir: str, defaults_dir: str) -> None:
+    """Copy assets to output directory.
+
+    If assets_dir has no style.css, falls back to defaults/style.css.
+    Always copies search.js from defaults.
+
+    Args:
+        assets_dir: Source assets directory (user-specified).
+        output_dir: Destination directory.
+        defaults_dir: Path to slop_doc/defaults directory.
+    """
+    import shutil
+
+    output_assets = os.path.join(output_dir, 'assets')
+    if os.path.exists(output_assets):
+        shutil.rmtree(output_assets)
+
+    os.makedirs(output_assets, exist_ok=True)
+
+    # Copy user's assets if they exist
+    if os.path.exists(assets_dir):
+        for item in os.listdir(assets_dir):
+            src = os.path.join(assets_dir, item)
+            dst = os.path.join(output_assets, item)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+
+    # Ensure style.css exists (fall back to defaults if needed)
+    style_css_dest = os.path.join(output_assets, 'style.css')
+    if not os.path.exists(style_css_dest):
+        defaults_style = os.path.join(defaults_dir, 'style.css')
+        if os.path.exists(defaults_style):
+            shutil.copy2(defaults_style, style_css_dest)
+
+    # Always copy search.js from defaults
+    defaults_search = os.path.join(defaults_dir, 'search.js')
+    if os.path.exists(defaults_search):
+        shutil.copy2(defaults_search, os.path.join(output_assets, 'search.js'))
 
 
 def build_docs(config_path: str) -> None:
@@ -33,7 +76,7 @@ def build_docs(config_path: str) -> None:
 
         # Get config info for templates
         config_dir = os.path.dirname(os.path.abspath(config_path))
-        from pydocgen.tree_builder import parse_main_config
+        from slop_doc.tree_builder import parse_main_config
         config = parse_main_config(config_path)
 
         project_name = config.get('project_name', 'Documentation')
@@ -41,6 +84,12 @@ def build_docs(config_path: str) -> None:
         output_dir = os.path.join(config_dir, config.get('output_dir', 'build/docs/'))
         templates_dir = os.path.join(config_dir, config.get('templates_dir', 'docs/templates/'))
         assets_dir = os.path.join(config_dir, config.get('assets_dir', 'docs/assets/'))
+
+        # Get defaults directory from package
+        defaults_pkg = importlib.resources.files("slop_doc.defaults")
+        defaults_dir = str(defaults_pkg)  # pathlib path to defaults folder
+        defaults_templates_dir = os.path.join(defaults_dir, 'templates')
+        defaults_style_css = os.path.join(defaults_dir, 'style.css')
 
         # Step 2: Build cross-link index
         index = build_index(tree, source_data_by_folder)
@@ -56,10 +105,13 @@ def build_docs(config_path: str) -> None:
                 continue
 
             try:
-                # Load template
-                template_path = os.path.join(templates_dir, f"{node.template}.dtmpl")
+                # Load template (user dir first, then fall back to defaults)
+                template_name = f"{node.template}.dtmpl"
+                template_path = os.path.join(templates_dir, template_name)
                 if not os.path.exists(template_path):
-                    raise BuildError(f"Node '{node.title}': template '{node.template}' not found in {templates_dir}/")
+                    template_path = os.path.join(defaults_templates_dir, template_name)
+                if not os.path.exists(template_path):
+                    raise BuildError(f"Node '{node.title}': template '{node.template}' not found")
 
                 with open(template_path, 'r', encoding='utf-8') as f:
                     template_content = f.read()
@@ -99,8 +151,8 @@ def build_docs(config_path: str) -> None:
             except (TemplateEngineError, CrossLinkError) as e:
                 raise BuildError(f"Node '{node.title}': {e}")
 
-        # Step 5: Copy assets
-        copy_assets(assets_dir, output_dir)
+        # Step 5: Copy assets (user dir first, then fall back to defaults for style.css)
+        _copy_assets_with_defaults(assets_dir, output_dir, defaults_dir)
 
         print(f"Built {pages_built} pages to {output_dir}")
 
@@ -131,9 +183,9 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error).
     """
-    parser = argparse.ArgumentParser(description='PyDocGen - Static documentation generator')
+    parser = argparse.ArgumentParser(description='slop-doc - Static documentation generator')
     parser.add_argument('command', choices=['build'], help='Command to run')
-    parser.add_argument('--config', default='docs_config.dcfg', help='Path to config file')
+    parser.add_argument('--config', default='.sdoc.tree', help='Path to config file')
 
     args = parser.parse_args()
 

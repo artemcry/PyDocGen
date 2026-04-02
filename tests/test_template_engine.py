@@ -1,12 +1,12 @@
 """Tests for Stage 3: Template Engine."""
 
 import pytest
-from pydocgen.template_engine import (
+from slop_doc.template_engine import (
     parse_params_block, validate_params, substitute_params,
     expand_for_loops, render_data_tags, render_template,
     TemplateEngineError
 )
-from pydocgen.parser import SourceData, ClassData, FunctionData, ConstantData
+from slop_doc.parser import SourceData, ClassData, FunctionData, ConstantData
 
 
 class TestParamSubstitution:

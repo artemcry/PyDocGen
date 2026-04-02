@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pydocgen.tree_builder import Node
-    from pydocgen.parser import SourceData
+    from slop_doc.tree_builder import Node
+    from slop_doc.parser import SourceData
 
 
 class CrossLinkError(Exception):

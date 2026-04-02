@@ -1,7 +1,7 @@
 """Tests for Stage 2: DCFG Preprocessor."""
 
 import pytest
-from pydocgen.dcfg_preprocessor import expand_macros, DCFGPreprocessorError
+from slop_doc.dcfg_preprocessor import expand_macros, DCFGPreprocessorError
 
 
 class TestExpandClassesBasic:

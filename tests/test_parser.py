@@ -3,7 +3,7 @@
 import os
 import tempfile
 import pytest
-from pydocgen.parser import (
+from slop_doc.parser import (
     parse_file, parse_folder, parse_google_docstring,
     SourceData, ClassData, FunctionData, ConstantData,
     ArgData, PropertyData, ParamDoc, ReturnDoc, RaiseDoc

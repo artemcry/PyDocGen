@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from pydocgen.parser import SourceData
-from pydocgen.markdown_renderer import markdown_to_html
+from slop_doc.parser import SourceData
+from slop_doc.markdown_renderer import markdown_to_html
 
 
 class TemplateEngineError(Exception):

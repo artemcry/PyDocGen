@@ -24,7 +24,7 @@ PyDocGen is a static documentation generator for Python projects. It produces a 
 
 ```
 project/
-  docs_config.dcfg                 # main config
+  .sdoc.tree                 # main config
   docs/
     templates/
       default_module.dtmpl
@@ -39,19 +39,19 @@ project/
       style_overrides.css
   src/
     dataflow/
-      _docs.dcfg                   # folder doc config
+      .sdoc                   # folder doc config
       __init__.py
       pipeline.py
       nodes.py
       transforms/
-        _docs.dcfg
+        .sdoc
         base.py
   build/docs/                      # output directory
 ```
 
 ---
 
-## 3. Main Config — `docs_config.dcfg`
+## 3. Main Config — `.sdoc.tree`
 
 ```yaml
 project_name: "MyProject"
@@ -103,7 +103,7 @@ tree:
       template: "child_tmpl"
 ```
 
-- `auto_source: "src/"` — special directive. The builder scans this directory recursively for `_docs.dcfg` files and attaches found sub-trees to this node.
+- `auto_source: "src/"` — special directive. The builder scans this directory recursively for `.sdoc` files and attaches found sub-trees to this node.
 
 ### Nodes Without `source`
 
@@ -111,9 +111,9 @@ Manual pages (Introduction, Installation, etc.) have no `source` folder. Their t
 
 ---
 
-## 4. Folder Config — `_docs.dcfg`
+## 4. Folder Config — `.sdoc`
 
-Each Python source folder that should appear in documentation must contain a `_docs.dcfg` file. Folders without it are ignored (not inherited, not defaulted).
+Each Python source folder that should appear in documentation must contain a `.sdoc` file. Folders without it are ignored (not inherited, not defaulted).
 
 ```yaml
 branch: "API Reference"
@@ -145,16 +145,16 @@ children:
 - `branch` — path in the main tree where this folder attaches. Uses `">"` separator for nested paths: `"API Reference > Core"`.
 - `title` — display name of this node in the nav tree.
 - `template` — which `.dtmpl` to use for this node's page.
-- `source` — path to Python source folder, relative to this `_docs.dcfg` location. `"."` means same folder.
+- `source` — path to Python source folder, relative to this `.sdoc` location. `"."` means same folder.
 - `params` — key-value pairs passed to the template. All values are strings.
 - `children` — ordered list of child nodes. Can contain:
   - Regular child nodes (`title` + `template` + optional `params`)
   - `%%__CLASSES__%%` macro blocks (see Section 5)
-  - `- dir: "subfolder/"` — recursion into subfolder's `_docs.dcfg`
+  - `- dir: "subfolder/"` — recursion into subfolder's `.sdoc`
 
 ### `source` Inheritance
 
-All children of a node inherit the parent's `source` unless they specify their own. A `- dir:` child gets its source from its own `_docs.dcfg`.
+All children of a node inherit the parent's `source` unless they specify their own. A `- dir:` child gets its source from its own `.sdoc`.
 
 ---
 
@@ -346,7 +346,7 @@ All data tags read from the `SourceData` of the node's `source` folder.
 | `{{functions}}` | HTML table: function signature + short description, for top-level functions |
 | `{{functions_all}}` | Same but recursive |
 | `{{constants}}` | HTML table: constant name + value + type, for `ALL_CAPS` module-level variables |
-| `{{submodules}}` | HTML table: subfolder name + description (from their `_docs.dcfg`) |
+| `{{submodules}}` | HTML table: subfolder name + description (from their `.sdoc`) |
 
 ### Class-Level Tags (`#ClassName` required)
 
@@ -499,7 +499,7 @@ Index is built from all nodes that have a `source` and render classes/functions.
 
 - Template bodies (after `%%PARAM%%` substitution and `:: for` expansion)
 - Inside docstrings (processed when `{{data_tags}}` are rendered)
-- NOT in `_docs.dcfg` files
+- NOT in `.sdoc` files
 - NOT in `param@` declarations
 
 ---
@@ -576,10 +576,10 @@ Every page shares the same HTML shell:
 ## 12. CLI Interface
 
 ```bash
-python -m pydocgen build [--config docs_config.dcfg]
+python -m pydocgen build [--config .sdoc.tree]
 ```
 
-- `--config` — path to main config. Default: `docs_config.dcfg` in current directory.
+- `--config` — path to main config. Default: `.sdoc.tree` in current directory.
 - Exit code 0 on success, 1 on any error.
 - Errors printed to stderr with file path and line number where possible.
 - Warnings (e.g., empty sections) printed to stderr but don't stop the build.
@@ -663,7 +663,7 @@ class BaseNode:
 
 ### Config
 
-`src/dataflow/_docs.dcfg`:
+`src/dataflow/.sdoc`:
 ```yaml
 branch: "API Reference"
 title: "DataFlow"
@@ -1048,7 +1048,7 @@ test_class_info_tag
 
 **Module:** `pydocgen/tree_builder.py`
 
-**Input:** Main `docs_config.dcfg` + all `_docs.dcfg` files from `auto_source` directories.
+**Input:** Main `.sdoc.tree` + all `.sdoc` files from `auto_source` directories.
 
 **Output:** Tree of `Node` objects:
 ```python
@@ -1065,8 +1065,8 @@ class Node:
 **Functionality:**
 - Parse main config.
 - Build manual tree nodes from `tree:` section.
-- Walk `auto_source` directories, find `_docs.dcfg` files.
-- For each `_docs.dcfg`: run preprocessor (Stage 2), parse YAML, build sub-tree.
+- Walk `auto_source` directories, find `.sdoc` files.
+- For each `.sdoc`: run preprocessor (Stage 2), parse YAML, build sub-tree.
 - Attach sub-trees to correct branches via `branch:` field.
 - Assign `output_path` to each node (slugified title, nested by tree path).
 
@@ -1077,23 +1077,23 @@ test_manual_tree
     Assert: tree has 3 nodes with correct titles and templates
 
 test_auto_source_single_folder
-    Input: auto_source pointing to folder with _docs.dcfg
+    Input: auto_source pointing to folder with .sdoc
     Assert: folder attached as child of auto_source node
 
 test_auto_source_nested
-    Input: auto_source with folder containing subfolder (both have _docs.dcfg)
+    Input: auto_source with folder containing subfolder (both have .sdoc)
     Assert: nested tree structure
 
 test_branch_attachment
-    Input: _docs.dcfg with branch: "API Reference", main tree has "API Reference" node
+    Input: .sdoc with branch: "API Reference", main tree has "API Reference" node
     Assert: folder node is child of "API Reference"
 
 test_branch_not_found
-    Input: _docs.dcfg with branch: "NonExistent"
+    Input: .sdoc with branch: "NonExistent"
     Assert: hard error
 
 test_folder_without_dcfg_ignored
-    Input: auto_source with two folders, only one has _docs.dcfg
+    Input: auto_source with two folders, only one has .sdoc
     Assert: only one folder in tree
 
 test_output_paths
@@ -1105,8 +1105,8 @@ test_source_inheritance
     Assert: child inherits parent's source
 
 test_dir_reference
-    Input: _docs.dcfg with children containing - dir: "subfolder/"
-    Assert: subfolder's _docs.dcfg parsed and attached
+    Input: .sdoc with children containing - dir: "subfolder/"
+    Assert: subfolder's .sdoc parsed and attached
 ```
 
 ---
@@ -1289,7 +1289,7 @@ test_assets_copied
     Assert: files present in output_dir/assets/
 
 test_cli_default_config
-    Run: python -m pydocgen build (with docs_config.dcfg in cwd)
+    Run: python -m pydocgen build (with .sdoc.tree in cwd)
     Assert: builds successfully
 
 test_cli_custom_config
@@ -1309,10 +1309,10 @@ test_cli_custom_config
 | Data tag with no source | Hard error | `template.dtmpl: Tag {{classes}} requires source, but node "Introduction" has no source` |
 | `[[Unknown]]` cross-link | Hard error | `template.dtmpl: Cross-link target 'Unknown' not found in index` |
 | Ambiguous cross-link | Hard error | `template.dtmpl: Ambiguous target 'Config'. Use [[dataflow.Config]] or [[utils.Config]]` |
-| `branch: "X"` not in tree | Hard error | `_docs.dcfg: Branch "X" not found in main tree` |
-| Unknown macro `%%__INVALID__%%` | Hard error | `_docs.dcfg: Unknown macro '__INVALID__'. Valid: __CLASSES__, __FUNCTIONS__` |
+| `branch: "X"` not in tree | Hard error | `.sdoc: Branch "X" not found in main tree` |
+| Unknown macro `%%__INVALID__%%` | Hard error | `.sdoc: Unknown macro '__INVALID__'. Valid: __CLASSES__, __FUNCTIONS__` |
 | Template file not found | Hard error | `Node "Pipeline": template 'nonexistent' not found in docs/templates/` |
-| `_docs.dcfg` missing in subfolder | Ignored | (folder skipped silently) |
+| `.sdoc` missing in subfolder | Ignored | (folder skipped silently) |
 | Empty `{{public_methods#X}}` | Warning | `Warning: Pipeline has no public methods` |
 | Empty `:: for` loop | Warning | `Warning: {{classes}} returned 0 items in template.dtmpl` |
 

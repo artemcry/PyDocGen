@@ -9,8 +9,8 @@ from typing import Any
 
 import yaml
 
-from pydocgen.dcfg_preprocessor import expand_macros, DCFGPreprocessorError
-from pydocgen.parser import SourceData, parse_folder
+from slop_doc.dcfg_preprocessor import expand_macros, DCFGPreprocessorError
+from slop_doc.parser import SourceData, parse_folder
 
 
 class TreeBuilderError(Exception):
@@ -27,7 +27,7 @@ class Node:
     source: str | None = None  # absolute path to source folder
     children: list[Node] = field(default_factory=list)
     output_path: str = ""  # relative path for output HTML file
-    branch: str | None = None  # for _docs.dcfg nodes, the branch path they attach to
+    branch: str | None = None  # for .sdoc nodes, the branch path they attach to
     is_auto: bool = False  # True if generated from auto_source
 
 
@@ -57,7 +57,7 @@ def parse_main_config(config_path: str) -> dict[str, Any]:
 
 
 def parse_folder_config(config_path: str, source_folder: str, class_names: list[str] = None, function_names: list[str] = None) -> dict[str, Any]:
-    """Parse a _docs.dcfg file with macro expansion."""
+    """Parse a .sdoc file with macro expansion."""
     with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -75,16 +75,16 @@ def parse_folder_config(config_path: str, source_folder: str, class_names: list[
 
 
 def find_docs_configs(root_dir: str) -> list[tuple[str, str]]:
-    """Find all _docs.dcfg files in a directory tree.
+    """Find all .sdoc files in a directory tree.
 
     Returns:
         List of (config_path, source_folder) tuples.
     """
     configs = []
     for dirpath, dirnames, filenames in os.walk(root_dir):
-        if '_docs.dcfg' in filenames:
-            config_path = os.path.join(dirpath, '_docs.dcfg')
-            # Source folder is the directory containing the _docs.dcfg
+        if '.sdoc' in filenames:
+            config_path = os.path.join(dirpath, '.sdoc')
+            # Source folder is the directory containing the .sdoc
             source_folder = dirpath
             configs.append((config_path, source_folder))
     return configs
@@ -246,7 +246,7 @@ def _process_auto_source_path(
         item_path = os.path.join(auto_path, item_name)
         if not os.path.isdir(item_path):
             continue
-        dcfg_path = os.path.join(item_path, '_docs.dcfg')
+        dcfg_path = os.path.join(item_path, '.sdoc')
         if not os.path.exists(dcfg_path):
             continue
         _process_single_dcfg(dcfg_path, item_path, root_nodes, source_data_by_folder, templates_dir)
@@ -259,7 +259,7 @@ def _process_single_dcfg(
     source_data_by_folder: dict,
     templates_dir: str,
 ) -> None:
-    """Parse a single _docs.dcfg, build its sub-tree, and attach to the declared branch."""
+    """Parse a single .sdoc, build its sub-tree, and attach to the declared branch."""
     source_data = parse_source_folder(source_folder)
     source_data_by_folder[source_folder] = source_data
 
@@ -306,10 +306,10 @@ def build_tree_from_folder_config(
     root_nodes: list[Node],
     parent_path: str = ""
 ) -> list[Node]:
-    """Build a sub-tree from a folder's _docs.dcfg config.
+    """Build a sub-tree from a folder's .sdoc config.
 
     Args:
-        folder_config: Parsed _docs.dcfg content.
+        folder_config: Parsed .sdoc content.
         source_folder: Path to the source folder.
         templates_dir: Path to templates directory.
         root_nodes: Root nodes for finding branches.
@@ -354,7 +354,7 @@ def _build_children(
     templates_dir: str,
     parent_path: str
 ) -> list[Node]:
-    """Build child nodes from a children: list in _docs.dcfg."""
+    """Build child nodes from a children: list in .sdoc."""
     nodes = []
 
     for child in children_config:

@@ -1,7 +1,7 @@
 """Tests for Stage 7: Layout Generator & HTML Output."""
 
 import pytest
-from pydocgen.layout import (
+from slop_doc.layout import (
     generate_nav_tree, generate_breadcrumb, generate_contents_sidebar,
     assemble_page, BreadcrumbItem, Node
 )
@@ -112,7 +112,7 @@ class TestSearchIndex:
 
     def test_search_index(self):
         """Tree with multiple nodes generates JSON index."""
-        from pydocgen.layout import generate_search_index
+        from slop_doc.layout import generate_search_index
         import json
 
         tree = [

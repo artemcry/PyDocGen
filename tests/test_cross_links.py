@@ -1,11 +1,11 @@
 """Tests for Stage 5: Cross-Link Index & Resolver."""
 
 import pytest
-from pydocgen.cross_links import (
+from slop_doc.cross_links import (
     CrossLinkIndex, resolve_links, build_index, CrossLinkError, _get_folder_slug
 )
-from pydocgen.tree_builder import Node
-from pydocgen.parser import SourceData, ClassData, FunctionData
+from slop_doc.tree_builder import Node
+from slop_doc.parser import SourceData, ClassData, FunctionData
 
 
 class TestGetFolderSlug:
