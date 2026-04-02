@@ -50,7 +50,7 @@ def build_output_path(node: Node, parent_path: str = "") -> str:
 
 
 def parse_main_config(config_path: str) -> dict[str, Any]:
-    """Parse the main docs_config.dcfg file."""
+    """Parse the main .sdoc.tree file."""
     with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
     return yaml.safe_load(content)
@@ -186,7 +186,7 @@ def build_tree(config_path: str) -> tuple[list[Node], dict[str, SourceData]]:
     """Build the complete documentation tree.
 
     Args:
-        config_path: Path to docs_config.dcfg.
+        config_path: Path to .sdoc.tree.
 
     Returns:
         Tuple of (root_nodes, source_data_by_folder)
@@ -238,7 +238,7 @@ def _process_auto_source_path(
     source_data_by_folder: dict,
     templates_dir: str,
 ) -> None:
-    """Scan direct subdirectories of auto_path for _docs.dcfg files and attach sub-trees."""
+    """Scan direct subdirectories of auto_path for .sdoc files and attach sub-trees."""
     if not os.path.isdir(auto_path):
         return
 

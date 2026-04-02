@@ -65,7 +65,7 @@ def build_docs(config_path: str) -> None:
     """Build all documentation.
 
     Args:
-        config_path: Path to docs_config.dcfg.
+        config_path: Path to .sdoc.tree.
 
     Raises:
         BuildError: If the build fails.

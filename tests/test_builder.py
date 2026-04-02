@@ -320,5 +320,56 @@ tree: []
                 pass
 
 
+class TestIterateNodes:
+    """Test _iterate_nodes function."""
+
+    def test_iterate_flat_tree(self):
+        """Flat tree with 3 nodes."""
+        from slop_doc.builder import _iterate_nodes
+        from slop_doc.tree_builder import Node
+
+        tree = [
+            Node(title="Introduction", template="intro"),
+            Node(title="Installation", template="install"),
+            Node(title="API Reference", template="api")
+        ]
+
+        nodes = _iterate_nodes(tree)
+
+        assert len(nodes) == 3
+        assert nodes[0].title == "Introduction"
+        assert nodes[1].title == "Installation"
+        assert nodes[2].title == "API Reference"
+
+    def test_iterate_nested_tree(self):
+        """Nested tree flattens all nodes."""
+        from slop_doc.builder import _iterate_nodes
+        from slop_doc.tree_builder import Node
+
+        tree = [
+            Node(title="Introduction", template="intro", children=[
+                Node(title="Getting Started", template="start", children=[
+                    Node(title="Quick Start", template="quick")
+                ])
+            ]),
+            Node(title="API Reference", template="api")
+        ]
+
+        nodes = _iterate_nodes(tree)
+
+        assert len(nodes) == 4
+        assert nodes[0].title == "Introduction"
+        assert nodes[1].title == "Getting Started"
+        assert nodes[2].title == "Quick Start"
+        assert nodes[3].title == "API Reference"
+
+    def test_iterate_empty_tree(self):
+        """Empty tree returns empty list."""
+        from slop_doc.builder import _iterate_nodes
+
+        nodes = _iterate_nodes([])
+        assert nodes == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

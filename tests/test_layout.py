@@ -3,7 +3,7 @@
 import pytest
 from slop_doc.layout import (
     generate_nav_tree, generate_breadcrumb, generate_contents_sidebar,
-    assemble_page, BreadcrumbItem, Node
+    assemble_page, BreadcrumbItem, Node, _assets_prefix, _relative_url
 )
 
 
@@ -39,7 +39,8 @@ class TestNavTree:
         html = generate_nav_tree(tree, current)
 
         assert "active" in html
-        assert 'href="api-reference/dataflow/pipeline.html"' in html
+        # Current page uses relative href (pipeline.html from same dir)
+        assert 'href="pipeline.html"' in html
 
 
 class TestBreadcrumb:
@@ -130,6 +131,46 @@ class TestSearchIndex:
         titles = [entry['title'] for entry in index]
         assert "Introduction" in titles
         assert "API Reference" in titles
+
+
+class TestAssetsPrefix:
+    """Test _assets_prefix function."""
+
+    def test_root_page(self):
+        """introduction.html has no prefix."""
+        assert _assets_prefix("introduction.html") == ""
+
+    def test_one_level_deep(self):
+        """api-reference/dataflow.html has ../ prefix."""
+        assert _assets_prefix("api-reference/dataflow.html") == "../"
+
+    def test_two_levels_deep(self):
+        """api-reference/dataflow/pipeline.html has ../../ prefix."""
+        assert _assets_prefix("api-reference/dataflow/pipeline.html") == "../../"
+
+
+class TestRelativeUrl:
+    """Test _relative_url function."""
+
+    def test_same_directory(self):
+        """From 'a.html' to 'b.html'."""
+        result = _relative_url("a.html", "b.html")
+        assert result == "b.html"
+
+    def test_from_subdir_to_sibling(self):
+        """From 'api/a.html' to 'api/b.html'."""
+        result = _relative_url("api/a.html", "api/b.html")
+        assert result == "b.html"
+
+    def test_from_subdir_to_parent(self):
+        """From 'api/dataflow/a.html' to 'api/b.html'."""
+        result = _relative_url("api/dataflow/a.html", "api/b.html")
+        assert result == "../b.html"
+
+    def test_from_parent_to_subdir(self):
+        """From 'api/a.html' to 'api/dataflow/b.html'."""
+        result = _relative_url("api/a.html", "api/dataflow/b.html")
+        assert result == "dataflow/b.html"
 
 
 if __name__ == "__main__":
