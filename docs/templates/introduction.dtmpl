@@ -17,5 +17,7 @@ p.add_node(SourceNode())
 p.run()
 ```
 
+[[dataflow/Pipeline.run]]
+
 See the [Getting Started](installation.html) section for setup instructions, and the
 API Reference for detailed class documentation.

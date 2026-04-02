@@ -3,32 +3,25 @@
   'use strict';
 
   var input = document.getElementById('search-input');
-  var index = null;
   var dropdown = null;
 
-  // Determine root prefix from current page depth
-  var depth = (window.location.pathname.match(/\//g) || []).length - 1;
-  var prefix = '';
-  for (var i = 0; i < depth; i++) prefix += '../';
+  // Get embedded search index from window (set by layout.py after this script loads)
+  function getIndex() {
+    return window.__SEARCH_INDEX__ || [];
+  }
 
-  function loadIndex() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', prefix + 'search_index.json', true);
-    xhr.onload = function () {
-      if (xhr.status === 200) {
-        try { index = JSON.parse(xhr.responseText); } catch (e) {}
-      }
-    };
-    xhr.send();
+  // Get embedded search prefix from window (set by layout.py)
+  function getPrefix() {
+    return window.__SEARCH_PREFIX__ || '';
   }
 
   function createDropdown() {
     dropdown = document.createElement('ul');
     dropdown.id = 'search-results';
     dropdown.style.cssText =
-      'position:absolute;top:100%;right:0;background:#fff;border:1px solid #ccc;' +
-      'border-radius:4px;list-style:none;padding:4px 0;margin:0;min-width:280px;' +
-      'max-height:320px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)';
+      'position:absolute;top:100%;left:0;right:0;background:#252525;border:1px solid #444;' +
+      'border-radius:4px;list-style:none;padding:4px 0;margin:0;width:100%;' +
+      'max-height:320px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.4)';
     input.parentNode.style.position = 'relative';
     input.parentNode.appendChild(dropdown);
   }
@@ -39,17 +32,17 @@
     if (!results.length) {
       var li = document.createElement('li');
       li.textContent = 'No results';
-      li.style.cssText = 'padding:8px 14px;color:#999;font-size:13px';
+      li.style.cssText = 'padding:8px 14px;color:#888;font-size:14px';
       dropdown.appendChild(li);
     } else {
       results.slice(0, 12).forEach(function (r) {
         var li = document.createElement('li');
         var a = document.createElement('a');
-        a.href = prefix + r.url;
+        a.href = getPrefix() + r.url;
         a.textContent = r.title;
         a.style.cssText =
-          'display:block;padding:6px 14px;color:#1d6fa4;text-decoration:none;font-size:13px';
-        a.onmouseover = function () { a.style.background = '#f0f4f8'; };
+          'display:block;padding:6px 14px;color:#e3e3e3;text-decoration:none;font-size:14px';
+        a.onmouseover = function () { a.style.background = '#3a3a3a'; };
         a.onmouseout = function () { a.style.background = ''; };
         li.appendChild(a);
         dropdown.appendChild(li);
@@ -63,6 +56,7 @@
   }
 
   function search(query) {
+    var index = getIndex();
     if (!index || !query) { hideResults(); return; }
     var q = query.toLowerCase();
     var results = index.filter(function (e) {
@@ -72,7 +66,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    loadIndex();
     if (!input) return;
 
     input.addEventListener('input', function () { search(this.value.trim()); });
@@ -102,5 +95,25 @@
 
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+  });
+
+  // Nav tree toggle (expand/collapse children without navigating)
+  document.addEventListener('DOMContentLoaded', function () {
+    var toggles = document.querySelectorAll('.nav-toggle');
+    toggles.forEach(function (toggle) {
+      toggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var li = toggle.closest('.has-children');
+        if (li) {
+          li.classList.toggle('expanded');
+          li.classList.toggle('collapsed');
+          var childList = li.querySelector('.nav-children');
+          if (childList) {
+            childList.classList.toggle('expanded');
+            childList.classList.toggle('collapsed');
+          }
+        }
+      });
+    });
   });
 }());

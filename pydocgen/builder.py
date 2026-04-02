@@ -45,7 +45,10 @@ def build_docs(config_path: str) -> None:
         # Step 2: Build cross-link index
         index = build_index(tree, source_data_by_folder)
 
-        # Step 3: Process each node
+        # Step 3: Generate search index (needed before page assembly)
+        search_index = generate_search_index(tree, source_data_by_folder)
+
+        # Step 4: Process each node
         pages_built = 0
         for node in _iterate_nodes(tree):
             # Skip container nodes without a template
@@ -83,7 +86,7 @@ def build_docs(config_path: str) -> None:
                 html_content = resolve_links(html_content, index, node.output_path)
 
                 # Assemble page (Step 7)
-                page_html = assemble_page(html_content, node, tree, project_name, version)
+                page_html = assemble_page(html_content, node, tree, project_name, version, search_index)
 
                 # Write output
                 output_path = os.path.join(output_dir, node.output_path)
@@ -95,12 +98,6 @@ def build_docs(config_path: str) -> None:
 
             except (TemplateEngineError, CrossLinkError) as e:
                 raise BuildError(f"Node '{node.title}': {e}")
-
-        # Step 4: Generate search index
-        search_index = generate_search_index(tree, source_data_by_folder)
-        search_index_path = os.path.join(output_dir, 'search_index.json')
-        with open(search_index_path, 'w', encoding='utf-8') as f:
-            f.write(search_index)
 
         # Step 5: Copy assets
         copy_assets(assets_dir, output_dir)

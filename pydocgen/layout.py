@@ -78,10 +78,13 @@ def _generate_nav_node(node: Node, current_path: str | None, page_path: str | No
     classes = ['nav-item']
     if is_current:
         classes.append('active')
-    if has_children:
-        classes.append('has-children')
     if is_container:
         classes.append('nav-group')
+
+    children_expanded = should_expand or is_current or is_container if has_children else False
+    if has_children:
+        classes.append('has-children')
+        classes.append('expanded' if children_expanded else 'collapsed')
 
     classes_str = ' '.join(classes)
     html = f'<li class="{classes_str}">\n'
@@ -94,11 +97,15 @@ def _generate_nav_node(node: Node, current_path: str | None, page_path: str | No
         extra = ' class="active"' if is_current else ''
         html += f'<a href="{href}"{extra}>{node.title}</a>\n'
 
-    if has_children and (should_expand or is_current or is_container):
-        html += '<ul class="nav-children">\n'
+    if has_children:
+        # Always render children but control visibility via CSS class
+        ul_class = 'expanded' if children_expanded else 'collapsed'
+        html += f'<ul class="nav-children {ul_class}">\n'
         for child in node.children:
             html += _generate_nav_node(child, current_path, page_path, expand_parents)
         html += '</ul>\n'
+        # Toggle arrow button (aligned right)
+        html += '<span class="nav-toggle" aria-hidden="true"></span>\n'
 
     html += '</li>\n'
     return html
@@ -206,6 +213,28 @@ def generate_search_index(tree: list[Node], source_data_by_folder: dict[str, any
         JSON string for the search index.
     """
     index = []
+    processed_sources = set()
+
+    # Build a mapping from class name -> detail page URL
+    # by scanning all nodes and looking for class detail pages
+    class_page_urls = {}
+    folder_page_urls = {}
+
+    def scan_for_class_pages(node: Node):
+        # If a node has a title like "Pipeline Class" and output_path like
+        # "api-reference/dataflow/pipeline-class.html", extract "Pipeline"
+        if node.title and node.output_path:
+            # Check if this looks like a class detail page
+            if '-class.html' in node.output_path:
+                class_name = node.title.replace(' Class', '')
+                class_page_urls[class_name] = node.output_path
+            elif node.title in ('Introduction', 'Getting Started', 'Installation', 'API Reference', 'DataFlow'):
+                folder_page_urls[node.title] = node.output_path
+        for child in node.children:
+            scan_for_class_pages(child)
+
+    for node in tree:
+        scan_for_class_pages(node)
 
     def process_node(node: Node):
         entry = {
@@ -215,8 +244,43 @@ def generate_search_index(tree: list[Node], source_data_by_folder: dict[str, any
         }
         index.append(entry)
 
-        # Add class and function names from source data
-        # (would need to integrate with source_data_by_folder here)
+        # Add class and function names from source data (only once per source)
+        if node.source and node.source not in processed_sources:
+            processed_sources.add(node.source)
+            if node.source in source_data_by_folder:
+                source_data = source_data_by_folder[node.source]
+
+                # Add classes with their detail page URL if found, else folder URL
+                for cls in source_data.classes:
+                    class_url = class_page_urls.get(cls.name, node.output_path)
+                    index.append({
+                        'title': cls.name,
+                        'url': class_url,
+                        'type': 'class'
+                    })
+                    # Add all methods (public, private, dunder) for search
+                    for method in cls.methods:
+                        index.append({
+                            'title': f"{cls.name}.{method.name}",
+                            'url': f"{class_url}#{method.name}",
+                            'type': 'method'
+                        })
+
+                # Add module-level functions
+                for func in source_data.functions:
+                    index.append({
+                        'title': func.name,
+                        'url': node.output_path,
+                        'type': 'function'
+                    })
+
+                # Add constants
+                for const in source_data.constants:
+                    index.append({
+                        'title': const.name,
+                        'url': node.output_path,
+                        'type': 'constant'
+                    })
 
         for child in node.children:
             process_node(child)
@@ -232,7 +296,8 @@ def assemble_page(
     node: Node,
     tree: list[Node],
     project_name: str,
-    version: str
+    version: str,
+    search_index: str = ''
 ) -> str:
     """Assemble a complete HTML page with 3-column layout.
 
@@ -242,6 +307,7 @@ def assemble_page(
         tree: The navigation tree.
         project_name: Project name for header.
         version: Version string.
+        search_index: JSON string for search index (embedded inline).
 
     Returns:
         Complete HTML page.
@@ -292,6 +358,12 @@ def assemble_page(
     </aside>
   </div>
   <script src="{prefix}assets/search.js"></script>
+  <script>
+  // Embedded search index (avoids XHR CORS issues with file:// protocol)
+  window.__SEARCH_INDEX__ = {search_index};
+  // Prefix for search result URLs (computed server-side by layout.py)
+  window.__SEARCH_PREFIX__ = '{prefix}';
+  </script>
   <script>
 (function() {{
   // Scroll spy - highlight current section in contents sidebar
