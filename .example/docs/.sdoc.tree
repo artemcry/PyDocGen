@@ -10,12 +10,11 @@ tree:
   - title: "Introduction"
     template: "introduction"
 
-  - title: "Getting Started"
-    children:
-      - title: "Installation"
-        template: "installation"
+  - title: "Installation"
+    template: "installation"
 
   - title: "API Reference"
+    template: "introduction"
     auto_source: "../src/"
 
 

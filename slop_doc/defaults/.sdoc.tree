@@ -8,4 +8,5 @@ mainpage: "main_page"
 
 tree:
   - title: "Project Tree"
+    template: "<your template>"
     auto_source: "../<path to project root>/"

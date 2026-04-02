@@ -70,3 +70,5 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+publish_pip.bat
+reinstall_pip.bat

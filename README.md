@@ -1,96 +1,105 @@
 # slop-doc
 
-Static documentation generator for Python projects. Write your documentation in Markdown templates, extract API docs automatically from Python source code, and get a searchable HTML documentation site.
+Static documentation generator for Python projects. Write pages in Markdown templates, auto-extract API docs from Python source via AST, and get a searchable HTML site with a dark theme and left-nav tree.
 
-## Installation
+## Install
 
 ```bash
 pip install slop-doc
 ```
 
+Requires Python 3.10+.
 
-## Quick Start
+---
 
-### 1. Create Project Structure
+## Quickstart
 
-```
-myproject/
-├── .sdoc.tree          # Main configuration
-├── docs/
-│   ├── templates/      # Your .dtmpl template files
-│   └── assets/         # CSS, images, JS (optional)
-└── src/
-    └── your_module/    # Python source to document
+### 1. Scaffold a docs folder
+
+```bash
+slop-doc init
+# creates docs/ with a default .sdoc.tree config
 ```
 
-### 2. Create `.sdoc.tree` Configuration
+Or use a custom name:
+
+```bash
+slop-doc init --name my-docs
+```
+
+### 2. Edit `.sdoc.tree`
+
+`docs/.sdoc.tree` is the main config file:
 
 ```yaml
 project_name: "MyProject"
 version: "1.0.0"
-output_dir: "build/docs/"
-templates_dir: "docs/templates/"
-assets_dir: "docs/assets/"
+output_dir: "build/"          # HTML output goes here
+templates_dir: "templates/"   # your .dtmpl template files
+assets_dir: "assets/"         # CSS, images (optional)
+docstring_style: "google"     # google | numpy | sphinx
+mainpage: "main_page"         # template for index.html (root landing page)
 
 tree:
-  - title: "Introduction"
-    template: "introduction"
-
-  - title: "Getting Started"
-    children:
-      - title: "Installation"
-        template: "installation"
-
-  - title: "API Reference"
-    auto_source: "src/"
+  - title: "Project Tree"
+    template: "<your template>"
+    auto_source: "../<path to project root>/"
 ```
 
-### 3. Create Templates
+### 3. Create templates
 
-**docs/templates/introduction.dtmpl:**
+Templates live in `templates/` and use the `.dtmpl` extension.
+
+**templates/my_page.dtmpl:**
 
 ```markdown
-# Introduction
+# %%TITLE%%
 
-Welcome to **MyProject**!
+Welcome to **%%PROJECT_NAME%%** v%%VERSION%%!
 
-## Quick Example
-
-[[dataflow/Pipeline]]
-
-See the [Getting Started](getting-started/installation.html) section.
+See [[mymodule/MyClass]] for the core API.
 ```
 
-**docs/templates/installation.dtmpl:**
+### 4. Build
 
-```markdown
-# Installation
-
-## Requirements
-
-- Python 3.10+
-- pip
-
-## Install
+Run from inside your docs folder (where `.sdoc.tree` lives):
 
 ```bash
-pip install myproject
+cd docs/
+slop-doc build
 ```
+
+Or point to the folder explicitly:
+
+```bash
+slop-doc build -d docs/
 ```
 
-### 4. Add Auto-Documentation (Optional)
+### 5. Open in browser
 
-For each Python package you want to auto-document, create a `.sdoc` file:
+```bash
+slop-doc open
+# or
+slop-doc open -d docs/
+```
 
-**src/mypackage/.sdoc:**
+Output: `build/index.html` (root landing) + `build/` subdirectories with all pages.
+
+---
+
+## Auto-documenting Python source
+
+For any Python package you want to auto-document, place a `.sdoc` file inside that package folder:
+
+**src/mymodule/.sdoc:**
 
 ```yaml
-branch: "API Reference"
-title: "MyPackage"
-template: "default_module"
-source: "."
+branch: "API Reference"         # where to attach in the nav tree
+title: "MyModule"
+template: "default_module"      # built-in template
+source: "."                     # always "." — current folder
 params:
-  MODULE_DESCRIPTION: "Description of your module."
+  MODULE_DESCRIPTION: "High-level description of this module."
 
 children:
   %%__CLASSES__%%
@@ -101,335 +110,187 @@ children:
   %%__CLASSES__%%
 ```
 
-### 5. Build
+`%%__CLASSES__%%` is a macro that expands into one child entry per class found in the folder.
+Same pattern works for functions: use `%%__FUNCTIONS__%%` / `%%__FUNCTION__%%`.
 
-```bash
-python -m slop_doc build
-```
-
-Or with custom config path:
-
-```bash
-python -m slop_doc build --config path/to/.sdoc.tree
-```
-
-## Configuration Reference
-
-### `.sdoc.tree` (Main Config)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `project_name` | string | Name displayed in header |
-| `version` | string | Version string |
-| `output_dir` | string | Output directory (relative to config) |
-| `templates_dir` | string | Templates directory |
-| `assets_dir` | string | Assets directory |
-| `docstring_style` | string | Docstring format: `google` (default), `numpy`, `sphinx` |
-| `tree` | list | Navigation tree structure |
-
-### Tree Node Fields
+To exclude specific items:
 
 ```yaml
-tree:
-  - title: "Page Title"              # Required: display name
-    template: "template_name"         # Template file (without .dtmpl)
-    output_path: "custom/page.html"   # Optional: override output path
-    children: [...]                  # Optional: nested pages
-    auto_source: "src/"              # Optional: auto-scan folder for .sdoc files
-    params:                           # Optional: template parameters
-      KEY: "value"
-```
-
-### `.sdoc` (Folder Config)
-
-Place `.sdoc` in each Python package folder:
-
-```yaml
-branch: "Parent > Child"              # Where to attach in navigation
-title: "Module Name"                  # Page title
-template: "default_module"            # Or your custom template
-source: "."                          # Always "." for current folder
-params:
-  MODULE_DESCRIPTION: "..."
-children:
-  %%__CLASSES__%%                    # Auto-expand all classes
+  %%__CLASSES__%%
   - title: "%%__CLASS__%% Class"
     template: "default_class"
     params:
       CLASS_ID: "%%__CLASS__%%"
-  %%__CLASSES__%%
+  %%__CLASSES__%%.exclude(InternalClass)
 ```
 
-### Template Macros
+Point `auto_source` in `.sdoc.tree` at the parent of these folders to pick them up automatically.
 
-| Macro | Description |
-|-------|-------------|
-| `%%__CLASSES__%%` | Placeholder replaced with all classes in folder |
-| `%%__CLASS__%%` | Current class name (inside CLASSES block) |
-| `%%__FUNCTIONS__%%` | All functions in folder |
-| `%%__FUNCTION__%%` | Current function name |
+---
 
-## Template Variables
+## Built-in templates
 
-Templates receive data via `{{variable}}` syntax:
+These ship with slop-doc and can be used without creating your own:
 
-### Common Variables
+| Template | Use for |
+|---|---|
+| `default_module` | Module-level page (class list, function list, constants) |
+| `default_class` | Class detail page (methods, properties, docstrings) |
+| `main_page` / `default_main_page` | Root landing page (`index.html`) |
 
-| Variable | Description |
-|----------|-------------|
-| `{{title}}` | Page title from tree config |
+If a template isn't found in your `templates_dir`, slop-doc falls back to the built-in version.
+
+---
+
+## Template syntax
+
+### Parameters (`%%PARAM%%`)
+
+Pass values from the tree config into a template:
+
+```yaml
+# in .sdoc.tree or .sdoc
+params:
+  GREETING: "Hello, world!"
+```
+
+```markdown
+<!-- in your .dtmpl file -->
+%%GREETING%%
+```
+
+### Auto-generated data tags (`{{tag}}`)
+
+Used inside built-in templates (or yours, if you call them):
+
+| Tag | Description |
+|---|---|
+| `{{title}}` | Page title |
 | `{{project_name}}` | From config |
 | `{{version}}` | From config |
-
-### Module Template Variables (`default_module`)
-
-| Variable | Description |
-|----------|-------------|
-| `{{classes}}` | Rendered class list |
+| `{{classes}}` | Rendered class list for the module |
 | `{{functions}}` | Rendered function list |
-| `{{constants}}` | Constants list |
-| `{{MODULE_DESCRIPTION}}` | From params |
-
-### Class Template Variables (`default_class`)
-
-| Variable | Description |
-|----------|-------------|
-| `{{class_name}}` | Class name |
+| `{{constants}}` | Module-level constants |
+| `{{class_name}}` | Class name (class page) |
 | `{{class_short_description}}` | First line of docstring |
 | `{{class_full_description}}` | Full docstring |
 | `{{class_info}}` | Base classes, decorators |
 | `{{properties}}` | Class properties |
-| `{{public_methods_summary}}` | Public methods list |
-| `{{private_methods_summary}}` | Private methods list |
-| `{{methods_details}}` | Detailed method docs |
+| `{{public_methods_summary}}` | Public methods table |
+| `{{private_methods_summary}}` | Private methods table |
+| `{{methods_details}}` | Full method documentation |
 
-## Cross-Links
+### Loops (`:: for ... :: endfor`)
 
-Link to classes and methods using `[[folder/ClassName]]` syntax:
+Iterate over collected items inside a template:
 
 ```markdown
-See [[dataflow/Pipeline]] for details.
+:: for cls in classes ::
+## %%CLASS_NAME%%
+{{class_short_description}}
+:: endfor ::
+```
 
-Call [[dataflow/Pipeline.run]] to execute.
+---
+
+## Cross-links
+
+Link to any class or method anywhere in your docs using `[[folder/ClassName]]`:
+
+```markdown
+See [[dataflow/Pipeline]] for the main class.
+
+Call [[dataflow/Pipeline.run]] to start execution.
+
+[[dataflow/Pipeline|the pipeline]] is the entry point.
 ```
 
 **Rules:**
-- Always use `folder/ClassName` format (not just `ClassName`)
+- Always use `folder/ClassName` — the folder is the Python package directory name, not the nav title.
 - For methods: `folder/ClassName.method_name`
-- For custom text: `[[dataflow/Pipeline|the main pipeline class]]`
+- Custom link text: `[[folder/ClassName|your text]]`
 
-## Default Templates
+Cross-links are resolved at build time. Broken links print a warning but don't fail the build.
 
-slop-doc includes built-in templates you can use:
-
-- `default_module` — For Python module pages (auto-generates from source)
-- `default_class` — For Python class pages (auto-generates from source)
-- Your custom templates in `docs/templates/`
-
-If a template isn't found in your templates dir, defaults are used.
+---
 
 ## Assets
 
-### User Assets
-
-Place CSS, images, JS in `docs/assets/`:
+Place CSS, images, and JS in your `assets_dir`:
 
 ```
 docs/assets/
-├── style.css          # Your custom styles
-├── logo.png           # Images
-└── custom.js         # Custom scripts
+├── style.css     # custom styles (overrides built-in dark theme)
+└── logo.png
 ```
 
-### Default Assets
+If `style.css` is absent, the built-in dark Qt-inspired theme is used.
+`search.js` (client-side search) is always provided by slop-doc — you don't need to supply it.
 
-If you don't provide `style.css` or `search.js`, defaults are used automatically:
-- **style.css** — Dark theme inspired by Qt documentation
-- **search.js** — Client-side search
+---
 
-## Project Structure
+## Project layout reference
 
 ```
 myproject/
-├── .sdoc.tree              # Main config
-├── docs/
-│   ├── templates/         # .dtmpl files
-│   └── assets/            # CSS, images (optional)
+├── docs/                      # your docs folder (created by slop-doc init)
+│   ├── .sdoc.tree             # main config
+│   ├── templates/             # .dtmpl files
+│   ├── assets/                # CSS, images (optional)
+│   └── build/                 # generated output (gitignore this)
+│       ├── index.html         # root landing page
+│       └── assets/
 └── src/
-    └── mypackage/         # Python source
-        └── .sdoc           # Folder config for auto-docs
+    └── mymodule/
+        ├── __init__.py
+        └── .sdoc              # auto-doc config for this package
 ```
 
-## Full `.sdoc.tree` Example
+---
+
+## CLI reference
+
+```
+slop-doc init [--name NAME]    scaffold a new docs folder (default: docs/)
+slop-doc build [-d DIR]        build docs (DIR = folder with .sdoc.tree)
+slop-doc open  [-d DIR]        open built docs in browser
+```
+
+`-d` defaults to the current directory if omitted.
+You can also run as a module: `python -m slop_doc build`.
+
+---
+
+## Configuration reference
+
+### `.sdoc.tree` fields
+
+| Field | Default | Description |
+|---|---|---|
+| `project_name` | `"Documentation"` | Displayed in header |
+| `version` | `""` | Version string |
+| `output_dir` | `"build/"` | Output directory (relative to `.sdoc.tree`) |
+| `templates_dir` | `"docs/templates/"` | Your `.dtmpl` files |
+| `assets_dir` | `"docs/assets/"` | Your CSS/images |
+| `docstring_style` | `"google"` | `google`, `numpy`, or `sphinx` |
+| `mainpage` | `"main_page"` | Template for `index.html` |
+| `tree` | — | Navigation tree (list of nodes) |
+
+### Tree node fields
 
 ```yaml
-project_name: "DataFlow"
-version: "2.0.0"
-output_dir: "build/docs/"
-templates_dir: "docs/templates/"
-assets_dir: "docs/assets/"
-docstring_style: "google"
-
 tree:
-  - title: "Introduction"
-    template: "introduction"
-
-  - title: "Getting Started"
+  - title: "Page Title"           # required
+    template: "template_name"     # .dtmpl file name without extension
+    output_path: "custom.html"    # optional override
+    auto_source: "src/"           # scan for .sdoc files
+    params:
+      KEY: "value"
     children:
-      - title: "Installation"
-        template: "installation"
-      - title: "Quick Start"
-        template: "quickstart"
-
-  - title: "API Reference"
-    auto_source: "src/"
-
-  - title: "Contributing"
-    template: "contributing"
+      - ...
 ```
 
 ---
-
-## How It Works
-
-slop-doc builds your documentation in **8 stages**:
-
-```
-Config File (.sdoc.tree)
-         │
-         ▼
-┌─────────────────────┐
-│  SDOC Preprocessor  │  Expand macros in .sdoc configs
-│ (sdoc_preprocessor) │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────┐
-│  Tree Builder   │  Parse .sdoc.tree + .sdoc configs → navigation tree
-│  (tree_builder) │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│     Parser      │  Extract classes/functions from Python source via AST
-│    (parser)     │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Cross-Links    │  Build index for [[folder/ClassName]] references
-│  (cross_links)  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Template Engine │  Process .dtmpl templates with params + data tags
-│ (template_engine│
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Markdown     │  Convert Markdown → HTML
-│   (markdown)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│     Layout      │  Assemble full page (header, nav, sidebar, content)
-│    (layout)     │
-└────────┬────────┘
-         │
-         ▼
-   Output (HTML files + assets)
-```
-
-### Stage 1 — Parser (`parser.py`)
-
-Extracts structured data from Python source files using the AST (Abstract Syntax Tree):
-
-- **Classes** — name, base classes, decorators, docstring, methods, properties
-- **Functions** — signature, parameters, return type, decorators, docstring
-- **Constants** — module-level ALL_CAPS variables
-
-Uses Google-style docstrings (Args:, Returns:, Raises:, Examples:).
-
-### Stage 2 — SDOC Preprocessor (`sdoc_preprocessor.py`)
-
-Expands macros in `.sdoc` YAML configs before parsing:
-
-- `%%__CLASSES%%` — replaced with one entry per class
-- `%%__CLASS%%` — current class name (inside block)
-- `%%__FUNCTIONS%%` / `%%__FUNCTION%%` — same for functions
-- `.exclude(ClassName)` — filter out specific items
-
-### Stage 3 — Tree Builder (`tree_builder.py`)
-
-Parses `.sdoc.tree` and `.sdoc` YAML configs into a **navigation tree**:
-
-```
-Node {
-    title: "Introduction"
-    template: "introduction"
-    output_path: "introduction.html"
-    children: [Node, Node, ...]
-    source: "."          # Python source folder (for auto-docs)
-    params: {}            # Template parameters
-}
-```
-
-Handles `auto_source` scanning (finds `.sdoc` files recursively) and macro expansion (`%%__CLASSES__%%`, `%%__FUNCTIONS__%%`).
-
-### Stage 4 — Cross-Link Index (`cross_links.py`)
-
-Builds a global index for `[[folder/ClassName]]` cross-references:
-
-- **folder_class_index**: `"dataflow/Pipeline"` → `"api-reference/dataflow/pipeline-class.html"`
-- **qualified_index**: `"Pipeline.run"` → URL with anchor
-- **short_index**: `"Pipeline"` → list of possible matches (for disambiguation)
-
-### Stage 5 — Template Engine (`template_engine.py`)
-
-Processes `.dtmpl` templates in 4 steps:
-
-1. **Parse params** — Extract `param@NAME` declarations from top of template
-2. **Substitute `%%PARAM%%`** — Replace with values from node config
-3. **Expand `:: for X in ... :: endfor`** — Loop over classes/functions
-4. **Render `{{data_tag}}`** — Insert auto-generated content (`{{classes}}`, `{{methods_details}}`, etc.)
-
-### Stage 6 — Markdown Renderer (`markdown_renderer.py`)
-
-Converts Markdown to HTML using the Markdown library.
-
-### Stage 7 — Layout (`layout.py`)
-
-Assembles the final HTML page:
-
-- **Header** — project name, breadcrumb, search bar
-- **Left nav** — collapsible tree navigation with active page highlight
-- **Right sidebar** — table of contents (h2/h3 headings)
-- **Content** — the rendered page content
-- **Assets** — copies CSS/JS, falls back to defaults if not provided
-
-### Stage 8 — Output
-
-Writes the HTML file to `output_dir`. Assets are copied (user dir first, then defaults for missing files like `style.css`).
-
----
-
-## Troubleshooting
-
-**Template not found error:**
-- Check `templates_dir` path in `.sdoc.tree`
-- Ensure template file has `.dtmpl` extension in filename
-- Template names in tree config should not include extension
-
-**Cross-link errors:**
-- Use `folder/ClassName` format (e.g., `[[dataflow/Pipeline]]`)
-- Check that the target class exists in the indexed source
-
-**Build succeeds but no output:**
-- Verify `output_dir` exists or can be created
-- Check that nodes have valid `template` values
 
 ## License
 

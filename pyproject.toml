@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slop-doc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Static documentation generator for Python projects"
 readme = "README.md"
-authors = [{name = "Artem"}]
+authors = [{name = "Ar4o"}]
 license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [

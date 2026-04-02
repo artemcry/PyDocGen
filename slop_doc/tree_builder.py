@@ -110,6 +110,8 @@ def build_tree_from_config(tree_config: list[dict], templates_dir: str, parent_p
     for item in tree_config:
         title = item.get('title', '')
         template = item.get('template', '')
+        if not template:
+            raise TreeBuilderError(f"Tree node '{title}' is missing 'template' property")
         params = item.get('params', {})
         children_config = item.get('children', [])
 
