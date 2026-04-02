@@ -576,14 +576,7 @@ def _render_methods_summary(class_data, method_type: str, folder_slug: str = "",
     for method in methods:
         sig = _render_function_signature(method, source_data, folder_slug)
         desc_html = markdown_to_html(method.short_description or "No description")
-
-        # Generate link based on context
-        if is_class_page and current_class_id == class_data.name:
-            # Same class page - use anchor
-            link = f"<a href=\"#{method.name}\">{method.name}</a>"
-        else:
-            # Different page - use cross-link (resolve_links will convert [[...]] to <a>)
-            link = f"[[{folder_slug}/{class_data.name}.{method.name}]]"
+        link = f"[[{folder_slug}/{class_data.name}.{method.name}]]"
 
         rows.append(f"<tr><td>{link}{sig[len(method.name):]}</td><td>{desc_html}</td></tr>")
 

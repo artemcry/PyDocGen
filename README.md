@@ -8,13 +8,6 @@ Static documentation generator for Python projects. Write your documentation in 
 pip install slop-doc
 ```
 
-Or install from source:
-
-```bash
-git clone https://github.com/yourusername/slop-doc.git
-cd slop-doc
-pip install -e .
-```
 
 ## Quick Start
 

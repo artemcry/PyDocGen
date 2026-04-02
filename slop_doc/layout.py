@@ -313,7 +313,6 @@ def assemble_page(
     prefix = _assets_prefix(node.output_path)
 
     # Generate navigation (with relative hrefs from this page)
-    nav_html = generate_nav_tree(tree, node)
     # Rebuild nav with relative hrefs specific to this page's location
     current_path = node.output_path
     nav_html = '<ul class="nav-tree">\n'
@@ -394,7 +393,28 @@ def assemble_page(
     }});
   }}
 
+  // Restart :target animation for any anchor link on the page
+  document.addEventListener('click', function(e) {{
+    var link = e.target.closest('a[href]');
+    if (!link) return;
+    var href = link.getAttribute('href');
+    var anchor = href && href.includes('#') ? href.split('#').pop() : null;
+    if (!anchor) return;
+    var targetEl = document.getElementById(anchor);
+    if (!targetEl) return;
+    targetEl.style.animation = 'none';
+    void targetEl.offsetWidth;
+    targetEl.style.animation = '';
+  }});
+
   window.addEventListener('scroll', highlightCurrent);
+  tocLinks.forEach(function(link) {{
+    link.addEventListener('click', function() {{
+      tocLinks.forEach(function(l) {{ l.classList.remove('current'); }});
+      void link.offsetWidth;
+      link.classList.add('current');
+    }});
+  }});
   highlightCurrent();
 }})();
   </script>

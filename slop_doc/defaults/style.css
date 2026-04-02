@@ -326,11 +326,20 @@ th {
 td {
   padding: 6px 12px;
   border: 1px solid #3a3a3a;
-  vertical-align: top;
+  vertical-align: middle;
   color: #E3E3E3;
 }
 
 tr:nth-child(even) td { background: #242424; }
+
+.methods-table td {
+  padding: 7px 12px;
+  vertical-align: middle;
+}
+
+.methods-table td p {
+  margin-bottom: 0;
+}
 
 /* ── Code ────────────────────────────────────────────────── */
 
