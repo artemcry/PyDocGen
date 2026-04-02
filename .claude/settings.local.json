@@ -9,7 +9,10 @@
       "Bash(python -m pydocgen --help)",
       "Bash(pip install:*)",
       "Bash(slop-doc build:*)",
-      "Bash(python -m slop_doc build --help)"
+      "Bash(python -m slop_doc build --help)",
+      "Bash(pip show:*)",
+      "Bash(rm -rf /d/Projects/6/tttt/web-docs)",
+      "Bash(python -m slop_doc init --name web-docs)"
     ],
     "defaultMode": "bypassPermissions"
   }
