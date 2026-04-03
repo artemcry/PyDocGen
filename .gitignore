@@ -72,3 +72,5 @@ venv.bak/
 dmypy.json
 publish_pip.bat
 reinstall_pip.bat
+CORRECT TEMPLATE
+test_docs

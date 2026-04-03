@@ -68,7 +68,7 @@ def _generate_nav_node(node: Node, current_path: str | None, page_path: str | No
     """
     is_current = current_path is not None and node.output_path == current_path
     has_children = len(node.children) > 0
-    is_container = not node.template  # No template = container/group node
+    is_container = not node.output_path and not node.content  # No output = container/group node
 
     if current_path is None:
         should_expand = True
@@ -221,13 +221,10 @@ def generate_search_index(tree: list[Node], source_data_by_folder: dict[str, any
     folder_page_urls = {}
 
     def scan_for_class_pages(node: Node):
-        # If a node has a title like "Pipeline Class" and output_path like
-        # "api-reference/dataflow/pipeline-class.html", extract "Pipeline"
-        if node.title and node.output_path:
-            # Check if this looks like a class detail page
-            if '-class.html' in node.output_path:
-                class_name = node.title.replace(' Class', '')
-                class_page_urls[class_name] = node.output_path
+        # Auto-generated class pages have auto_class set
+        auto_class = getattr(node, 'auto_class', None)
+        if auto_class and node.output_path:
+            class_page_urls[auto_class] = node.output_path
         for child in node.children:
             scan_for_class_pages(child)
 
