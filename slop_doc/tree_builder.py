@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 
 from slop_doc.frontmatter import parse_frontmatter, PageMeta, FrontmatterError
@@ -189,6 +190,9 @@ def _walk_folder(
     md_files.sort(key=_sort_key)
     subdirs.sort(key=_sort_key)
 
+    has_root = os.path.isfile(root_md_path)
+    has_md_files = bool(md_files)
+
     # --- Process .md files ---
     for md_file in md_files:
         md_path = os.path.join(folder_path, md_file)
@@ -200,9 +204,14 @@ def _walk_folder(
     # --- Recurse into subdirectories ---
     for subdir in subdirs:
         sub_path = os.path.join(folder_path, subdir)
-        sub_node = _walk_folder(sub_path, output_prefix, effective_source, source_data_cache)
+        sub_node = _walk_folder(sub_path, output_prefix, effective_source, source_data_cache, exclude_dirs=exclude_dirs)
         if sub_node is not None:
             folder_node.children.append(sub_node)
+
+    # --- Skip folders with no content ---
+    if not has_root and not has_md_files and not folder_node.children:
+        print(f"WARNING: Folder has no root.md and no .md files — skipping: {folder_path}", file=sys.stderr)
+        return None
 
     return folder_node
 
