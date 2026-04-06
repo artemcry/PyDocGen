@@ -546,9 +546,12 @@ def _link_type_if_class(type_str: str, source_data: SourceData | None, folder_sl
         return type_str
 
     existing = {cls.name for cls in source_data.classes}
-    names = re.findall(r'\b([A-Z][a-zA-Z0-9_]*)\b', type_str)
-    result = type_str
-    for name in names:
+    # Use regex substitution with word boundaries to avoid collisions
+    # (e.g., list[ClassName] → list[ [[folder/ClassName]] ] instead of list[[[folder/ClassName]]])
+    def _replace(m):
+        name = m.group(0)
         if name in existing:
-            result = result.replace(name, f"[[{folder_slug}/{name}]]")
-    return result
+            return f" [[{folder_slug}/{name}]] "
+        return name
+
+    return re.sub(r'\b([A-Z][a-zA-Z0-9_]*)\b', _replace, type_str)

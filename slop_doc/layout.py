@@ -202,12 +202,17 @@ def generate_contents_sidebar(html_content: str) -> str:
     return html
 
 
-def generate_search_index(tree: list[Node], source_data_by_folder: dict[str, any]) -> str:
+def generate_search_index(
+    tree: list[Node],
+    source_data_by_folder: dict[str, any],
+    hidden_nodes: list[Node] | None = None,
+) -> str:
     """Generate search index JSON.
 
     Args:
         tree: The navigation tree.
         source_data_by_folder: Dict of source data by folder.
+        hidden_nodes: Auto-class nodes not in the nav tree (still searchable).
 
     Returns:
         JSON string for the search index.
@@ -230,6 +235,11 @@ def generate_search_index(tree: list[Node], source_data_by_folder: dict[str, any
 
     for node in tree:
         scan_for_class_pages(node)
+
+    # Also register hidden nodes in the class page URL map
+    for node in (hidden_nodes or []):
+        if node.auto_class and node.output_path:
+            class_page_urls.setdefault(node.auto_class, node.output_path)
 
     def process_node(node: Node):
         entry = {

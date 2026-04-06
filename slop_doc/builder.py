@@ -30,6 +30,7 @@ from slop_doc.tag_renderer import (
     render_presentation_functions,
     TagRendererError,
 )
+from slop_doc.parser import SourceData
 from slop_doc.cross_links import build_index, resolve_links, CrossLinkError, CrossLinkIndex
 from slop_doc.markdown_renderer import markdown_to_html
 from slop_doc.layout import assemble_page, generate_search_index
@@ -143,6 +144,77 @@ def _generate_auto_function_content(func_name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Hidden class pages  (auto-generated for cross-link targets not in nav tree)
+# ---------------------------------------------------------------------------
+
+def _create_hidden_class_nodes(
+    root_node: Node,
+    tree: list[Node],
+    source_data_by_folder: dict[str, SourceData],
+) -> list[Node]:
+    """Create auto-class nodes for classes that don't have explicit pages in the tree.
+
+    These "hidden" nodes get rendered as full class pages and indexed for cross-links,
+    but are NOT added to the navigation tree.
+
+    Returns:
+        List of hidden Node objects.
+    """
+    from slop_doc.tree_builder import slugify
+
+    # Collect classes that already have dedicated pages
+    existing: dict[str, set[str]] = {}  # source_path → {class_name, ...}
+    # Also collect the output prefix per source (derived from existing auto_class siblings)
+    source_prefix: dict[str, str] = {}  # source_path → output prefix
+
+    all_nodes = _iterate_nodes(tree)
+
+    for node in all_nodes:
+        if node.is_auto and node.auto_class and node.source:
+            existing.setdefault(node.source, set()).add(node.auto_class)
+            # Derive prefix: "prefix/classname.html" → "prefix"
+            if node.source not in source_prefix:
+                parts = node.output_path.rsplit('/', 1)
+                source_prefix[node.source] = parts[0] if len(parts) > 1 else ""
+
+    # For sources without any auto_class nodes, find prefix from folder/page nodes.
+    # Prefer folder nodes (index.html) over regular pages; check root node too.
+    nodes_to_check = [root_node] + all_nodes
+    for node in nodes_to_check:
+        if node.source and node.source not in source_prefix and not node.is_auto:
+            if node.output_path.endswith('/index.html'):
+                source_prefix[node.source] = node.output_path.replace('/index.html', '')
+            elif not node.output_path or node.output_path == '':
+                # Root node — hidden pages go under a folder named after the source
+                source_prefix[node.source] = slugify(os.path.basename(node.source.rstrip('/\\')))
+            elif node.output_path.endswith('.html'):
+                # Regular page — use a folder named after the source to avoid conflicts
+                source_prefix[node.source] = slugify(os.path.basename(node.source.rstrip('/\\')))
+
+    hidden: list[Node] = []
+    for source, source_data in source_data_by_folder.items():
+        prefix = source_prefix.get(source)
+        if prefix is None:
+            continue
+
+        existing_names = existing.get(source, set())
+        for cls in source_data.classes:
+            if cls.name not in existing_names:
+                slug = slugify(cls.name)
+                output = f"{prefix}/{slug}.html" if prefix else f"{slug}.html"
+                hidden.append(Node(
+                    title=cls.name,
+                    content="",
+                    source=source,
+                    output_path=output,
+                    is_auto=True,
+                    auto_class=cls.name,
+                ))
+
+    return hidden
+
+
+# ---------------------------------------------------------------------------
 # Build pipeline
 # ---------------------------------------------------------------------------
 
@@ -174,11 +246,14 @@ def build_docs(docs_root: str) -> None:
         root_node, source_data_by_folder = build_tree_with_root(docs_root, exclude_dirs={output_dir_name})
         tree = root_node.children  # top-level nav tree
 
+        # --- Step 1b: Create hidden class pages (not in nav, but indexed & rendered) ---
+        hidden_nodes = _create_hidden_class_nodes(root_node, tree, source_data_by_folder)
+
         # --- Step 2: Build cross-link index ---
-        index = build_index(tree, source_data_by_folder)
+        index = build_index(tree, source_data_by_folder, hidden_nodes=hidden_nodes)
 
         # --- Step 3: Search index ---
-        search_index = generate_search_index(tree, source_data_by_folder)
+        search_index = generate_search_index(tree, source_data_by_folder, hidden_nodes=hidden_nodes)
 
         # --- Step 4: Build index.html from root.md content ---
         if root_node.content:
@@ -190,7 +265,8 @@ def build_docs(docs_root: str) -> None:
 
         # --- Step 5: Build all pages ---
         pages_built = 0
-        for node in _iterate_nodes(tree):
+        all_nodes = _iterate_nodes(tree) + hidden_nodes
+        for node in all_nodes:
             body = node.content
 
             # Auto-generated pages

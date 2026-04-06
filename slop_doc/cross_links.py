@@ -127,12 +127,19 @@ def _get_folder_slug(output_path: str) -> str:
 # Index building  (adapted for new Node structure)
 # ---------------------------------------------------------------------------
 
-def build_index(tree: list[Node], source_data_by_folder: dict[str, SourceData]) -> CrossLinkIndex:
+def build_index(
+    tree: list[Node],
+    source_data_by_folder: dict[str, SourceData],
+    hidden_nodes: list[Node] | None = None,
+) -> CrossLinkIndex:
     """Build the global cross-link index from the tree.
 
     For auto-generated class pages, the class and its methods are indexed
     at that page's URL.  For regular pages with source, all classes in the
     source are indexed at the page URL (unless overridden by a child class page).
+
+    ``hidden_nodes`` are auto-class nodes not in the nav tree — they are
+    indexed the same way as tree auto-class nodes.
     """
     index = CrossLinkIndex()
     indexed_sources: set[str] = set()
@@ -140,23 +147,28 @@ def build_index(tree: list[Node], source_data_by_folder: dict[str, SourceData]) 
     def _source_slug(src: str) -> str:
         return os.path.basename(src.rstrip('/\\')) if src else ''
 
+    def _index_auto_class(node: Node) -> None:
+        """Index an auto-class node (tree or hidden)."""
+        class_name = node.auto_class
+        source_data = source_data_by_folder.get(node.source)
+        if not source_data:
+            return
+        folder_slug = _source_slug(node.source)
+        key = f"{folder_slug}/{class_name}"
+        index.folder_class_index[key] = node.output_path
+
+        # Index methods
+        for cls in source_data.classes:
+            if cls.name == class_name:
+                for method in cls.methods:
+                    mkey = f"{folder_slug}/{class_name}.{method.name}"
+                    index.folder_class_index[mkey] = node.output_path
+                break
+
     def process_node(node: Node, parent_source: str | None = None):
         # --- Auto-generated class page ---
         if node.is_auto and node.auto_class and node.source:
-            class_name = node.auto_class
-            source_data = source_data_by_folder.get(node.source)
-            if source_data:
-                folder_slug = _source_slug(node.source)
-                key = f"{folder_slug}/{class_name}"
-                index.folder_class_index[key] = node.output_path
-
-                # Index methods
-                for cls in source_data.classes:
-                    if cls.name == class_name:
-                        for method in cls.methods:
-                            mkey = f"{folder_slug}/{class_name}.{method.name}"
-                            index.folder_class_index[mkey] = node.output_path
-                        break
+            _index_auto_class(node)
 
         # --- Regular page with source ---
         elif node.source and node.source in source_data_by_folder:
@@ -184,7 +196,11 @@ def build_index(tree: list[Node], source_data_by_folder: dict[str, SourceData]) 
         for child in other_children:
             process_node(child, node.source)
 
-    # Process auto nodes first across the entire tree
+    # Index hidden nodes first — they claim URLs before fallback indexing
+    for node in (hidden_nodes or []):
+        _index_auto_class(node)
+
+    # Then process the tree (auto class pages in tree take priority via overwrite)
     for root_node in tree:
         process_node(root_node, None)
 
