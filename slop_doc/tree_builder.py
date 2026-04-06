@@ -87,7 +87,8 @@ def build_tree(docs_root: str, exclude_dirs: set[str] | None = None) -> tuple[li
         Tuple of (root_nodes, source_data_by_folder).
     """
     source_data_cache: dict[str, SourceData] = {}
-    root_node = _walk_folder(docs_root, "", None, source_data_cache, is_root=True, exclude_dirs=exclude_dirs)
+    path_base = os.path.dirname(os.path.abspath(docs_root))
+    root_node = _walk_folder(docs_root, "", None, source_data_cache, path_base, is_root=True, exclude_dirs=exclude_dirs)
 
     if root_node is None:
         raise TreeBuilderError(f"No .md files found in {docs_root}")
@@ -102,7 +103,8 @@ def build_tree_with_root(docs_root: str, exclude_dirs: set[str] | None = None) -
         Tuple of (root_node, source_data_by_folder).
     """
     source_data_cache: dict[str, SourceData] = {}
-    root_node = _walk_folder(docs_root, "", None, source_data_cache, is_root=True, exclude_dirs=exclude_dirs)
+    path_base = os.path.dirname(os.path.abspath(docs_root))
+    root_node = _walk_folder(docs_root, "", None, source_data_cache, path_base, is_root=True, exclude_dirs=exclude_dirs)
 
     if root_node is None:
         raise TreeBuilderError(f"No .md files found in {docs_root}")
@@ -119,6 +121,7 @@ def _walk_folder(
     parent_output_prefix: str,
     inherited_source: str | None,
     source_data_cache: dict[str, SourceData],
+    path_base: str = "",
     is_root: bool = False,
     exclude_dirs: set[str] | None = None,
 ) -> Node | None:
@@ -129,6 +132,7 @@ def _walk_folder(
         parent_output_prefix: Output path prefix from parent (e.g., "api/core").
         inherited_source: default_source_folder inherited from ancestor.
         source_data_cache: Shared cache of parsed SourceData.
+        path_base: Project root (parent of docs root) for resolving relative paths.
         is_root: True for the top-level docs folder (children at top level).
         exclude_dirs: Set of directory names to skip (e.g. output dir).
 
@@ -153,8 +157,8 @@ def _walk_folder(
 
     folder_title = folder_meta.title or os.path.basename(folder_path)
 
-    # Resolve source folder for this level
-    local_source = _resolve_source_folder(folder_meta.default_source_folder, folder_path)
+    # Resolve source folder for this level (relative to project root, not current folder)
+    local_source = _resolve_source_folder(folder_meta.default_source_folder, path_base, root_md_path)
     effective_source = local_source or inherited_source
 
     # Build output prefix for this folder
@@ -173,6 +177,11 @@ def _walk_folder(
         output_path=f"{output_prefix}/index.html" if output_prefix else "",
         meta=folder_meta,
     )
+
+    # --- Expand children generators from root.md front-matter ---
+    if folder_meta.children and effective_source:
+        _get_source_data(effective_source, source_data_cache)
+        _expand_children(folder_node, folder_meta.children, effective_source, source_data_cache)
 
     # --- Collect and sort .md files (excluding root.md) ---
     md_files = []
@@ -197,14 +206,14 @@ def _walk_folder(
     for md_file in md_files:
         md_path = os.path.join(folder_path, md_file)
         child_nodes = _process_md_file(
-            md_path, md_file, output_prefix, effective_source, folder_path, source_data_cache
+            md_path, md_file, output_prefix, effective_source, path_base, source_data_cache
         )
         folder_node.children.extend(child_nodes)
 
     # --- Recurse into subdirectories ---
     for subdir in subdirs:
         sub_path = os.path.join(folder_path, subdir)
-        sub_node = _walk_folder(sub_path, output_prefix, effective_source, source_data_cache, exclude_dirs=exclude_dirs)
+        sub_node = _walk_folder(sub_path, output_prefix, effective_source, source_data_cache, path_base, exclude_dirs=exclude_dirs)
         if sub_node is not None:
             folder_node.children.append(sub_node)
 
@@ -225,7 +234,7 @@ def _process_md_file(
     filename: str,
     parent_output_prefix: str,
     inherited_source: str | None,
-    folder_path: str,
+    path_base: str,
     source_data_cache: dict[str, SourceData],
 ) -> list[Node]:
     """Process a single .md file and return the resulting Node(s).
@@ -244,9 +253,13 @@ def _process_md_file(
     # Title: front-matter title > first heading > filename
     title = meta.title or _extract_first_heading(body) or _title_from_filename(filename)
 
-    # Resolve source folder
-    local_source = _resolve_source_folder(meta.default_source_folder, folder_path)
+    # Resolve source folder (relative to project root)
+    local_source = _resolve_source_folder(meta.default_source_folder, path_base, md_path)
     effective_source = local_source or inherited_source
+
+    # Pre-populate source_data cache so {{classes}} can be expanded in body
+    if effective_source:
+        _get_source_data(effective_source, source_data_cache)
 
     # Output path
     slug = slugify(title)
@@ -265,7 +278,7 @@ def _process_md_file(
 
     # --- Handle children generators ---
     if meta.children:
-        _expand_children(node, meta.children, effective_source, folder_path, source_data_cache)
+        _expand_children(node, meta.children, effective_source, source_data_cache)
 
     return [node]
 
@@ -278,7 +291,6 @@ def _expand_children(
     parent_node: Node,
     children_spec: dict,
     effective_source: str | None,
-    folder_path: str,
     source_data_cache: dict[str, SourceData],
 ) -> None:
     """Expand children: block in front-matter.
@@ -310,10 +322,13 @@ def _expand_children(
 
         names = expand_data_tags_in_list(spec, source_data)
 
+        # All class-like types generate auto_class nodes
+        CLASS_TYPES = {'classes', 'enums', 'dataclasses', 'interfaces', 'protocols', 'exceptions', 'plain_classes'}
+
         for name in names:
             slug = slugify(name)
 
-            if child_type == 'classes':
+            if child_type in CLASS_TYPES:
                 child = Node(
                     title=f"{name}",
                     content="",
@@ -341,17 +356,31 @@ def _expand_children(
 # Source folder resolution
 # ---------------------------------------------------------------------------
 
-def _resolve_source_folder(raw_path: str | None, context_folder: str) -> str | None:
-    """Resolve a default_source_folder path relative to the .md file's folder."""
+def _resolve_source_folder(raw_path: str | None, path_base: str, context_file: str = "") -> str | None:
+    """Resolve a default_source_folder path relative to the project root.
+
+    All relative paths in .md files are resolved against *path_base* (the
+    parent directory of the docs root), NOT against the .md file's own folder.
+    This means the same path string works identically regardless of how deep
+    in the docs tree the .md file sits.
+
+    Args:
+        raw_path: The path string from front-matter (may be relative or absolute).
+        path_base: Project root — parent of the docs root folder.
+        context_file: Path to the .md file (for error messages only).
+    """
     if not raw_path:
         return None
     if os.path.isabs(raw_path):
         resolved = raw_path
     else:
-        resolved = os.path.normpath(os.path.join(context_folder, raw_path))
+        resolved = os.path.normpath(os.path.join(path_base, raw_path))
     if os.path.isdir(resolved):
         return resolved
-    return None
+    raise TreeBuilderError(
+        f"default_source_folder '{raw_path}' resolved to '{resolved}' "
+        f"which does not exist (in {context_file or 'unknown file'})"
+    )
 
 
 def _get_source_data(source_folder: str, cache: dict[str, SourceData]) -> SourceData:

@@ -47,8 +47,14 @@ PRES_FUNC_PATTERN = re.compile(r'%(\w+)\(([^)]*)\)%')
 def expand_data_tag(tag_name: str, source_data: SourceData | None) -> list[str]:
     """Expand a data tag to a list of names.
 
+    Plain tags (``classes``, ``functions``, ``constants``) return items from
+    **direct** files in the source folder only (no subfolders).
+
+    ``_rec`` variants (``classes_rec``, ``functions_rec``, ``constants_rec``)
+    return items from the source folder **and all subfolders**.
+
     Args:
-        tag_name: One of 'classes', 'functions', 'constants'.
+        tag_name: Tag name, e.g. 'classes', 'classes_rec'.
         source_data: Parsed source data.
 
     Returns:
@@ -58,16 +64,34 @@ def expand_data_tag(tag_name: str, source_data: SourceData | None) -> list[str]:
         TagRendererError: If the tag is unknown or source_data is None.
     """
     if source_data is None:
-        raise TagRendererError(f"Tag '{{{{{tag_name}}}}}' requires a source folder but none is set")
+        raise TagRendererError(
+            f"Tag '{{{{{tag_name}}}}}' requires a source folder but none is set. "
+            f"Set 'default_source_folder' in the page or a parent root.md front-matter."
+        )
 
-    if tag_name == 'classes':
-        return [c.name for c in source_data.classes]
-    elif tag_name == 'functions':
-        return [f.name for f in source_data.functions]
-    elif tag_name == 'constants':
-        return [c.name for c in source_data.constants]
-    else:
+    # Mapping: tag_name -> (flat_attr, rec_attr)
+    TAG_MAP = {
+        'classes':     ('classes_flat', 'classes'),
+        'functions':   ('functions_flat', 'functions'),
+        'constants':   ('constants_flat', 'constants'),
+        'enums':       ('enums_flat', 'enums'),
+        'dataclasses': ('dataclasses_flat', 'dataclasses'),
+        'interfaces':  ('interfaces_flat', 'interfaces'),
+        'protocols':   ('protocols_flat', 'protocols'),
+        'exceptions':    ('exceptions_flat', 'exceptions'),
+        'plain_classes': ('plain_classes_flat', 'plain_classes'),
+    }
+
+    # Check for _rec suffix
+    is_rec = tag_name.endswith('_rec')
+    base_name = tag_name[:-4] if is_rec else tag_name
+
+    if base_name not in TAG_MAP:
         raise TagRendererError(f"Unknown data tag: '{{{{{tag_name}}}}}'")
+
+    flat_attr, rec_attr = TAG_MAP[base_name]
+    items = getattr(source_data, rec_attr if is_rec else flat_attr)
+    return [item.name for item in items]
 
 
 def expand_data_tags_in_list(items: list, source_data: SourceData | None) -> list[str]:
@@ -105,15 +129,20 @@ def render_data_tags_inline(body: str, source_data: SourceData | None, folder_sl
     {{functions}}, {{constants}} → plain comma-separated names (no links,
     since they don't have dedicated pages by default).
     """
-    # Tags whose names should be cross-linked
-    LINKABLE_TAGS = {'classes'}
+    # Tags whose names should be cross-linked (all class-like types)
+    LINKABLE_TAGS = {
+        'classes', 'classes_rec',
+        'enums', 'enums_rec',
+        'dataclasses', 'dataclasses_rec',
+        'interfaces', 'interfaces_rec',
+        'protocols', 'protocols_rec',
+        'exceptions', 'exceptions_rec',
+        'plain_classes', 'plain_classes_rec',
+    }
 
     def _replace(match):
         tag = match.group(1)
-        try:
-            names = expand_data_tag(tag, source_data)
-        except TagRendererError:
-            return match.group(0)  # leave unknown tags as-is
+        names = expand_data_tag(tag, source_data)
 
         if not names:
             return "*None found.*"
