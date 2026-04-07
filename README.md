@@ -8,7 +8,7 @@ Static documentation generator for Python projects. Parses Python source code vi
 pip install slop-doc
 ```
 
-Requires Python >= 3.10.
+Requires Python >= 3.10. Dependencies: `markdown`, `watchdog`.
 
 ## Quick Start
 
@@ -21,7 +21,7 @@ slop-doc init --name docs
 # 3. Build
 slop-doc build -d docs
 
-# 4. Open in browser
+# 4. Serve with live reload (auto-rebuild + browser refresh on file changes)
 slop-doc open -d docs
 ```
 
@@ -31,7 +31,7 @@ slop-doc open -d docs
 |---|---|
 | `slop-doc init [--name <folder>]` | Create a new docs folder with a starter `root.md`. Default name: `docs` |
 | `slop-doc build [-d <dir>]` | Build documentation. Looks for `root.md` in `-d` dir or current directory |
-| `slop-doc open [-d <dir>] [-p <port>]` | Serve built docs via local HTTP server and open in browser. Default port from config or 8000 |
+| `slop-doc open [-d <dir>] [-p <port>]` | Build, serve, and **live-reload** — watches for file changes, rebuilds automatically, and refreshes the browser via SSE. Default port from config or 8000 |
 
 ---
 
@@ -57,7 +57,7 @@ my-docs/                    <- docs root (contains root.md)
 
 **Container nodes**: folders without `root.md` derive their title from the folder name (same rules as `.md` files — numeric prefixes stripped, separators cleaned, title-cased). Clicking a container node in the nav tree toggles its children — no page is generated.
 
-**Build output**: a self-contained HTML site with `assets/style.css`, `assets/app.js`, and one `.html` per page. Use `slop-doc open` to serve locally — pages load via SPA navigation (no full reload, smooth fade transitions). Also works with `file://` protocol (falls back to standard page loads).
+**Build output**: a self-contained HTML site with `assets/style.css`, `assets/app.js`, and one `.html` per page. Use `slop-doc open` to serve locally with **live reload** — edit any `.md` file and the browser refreshes automatically. Pages load via SPA navigation (no full reload, smooth fade transitions). Also works with `file://` protocol (falls back to standard page loads).
 
 ---
 
@@ -616,8 +616,8 @@ This generates:
 
 ```bash
 cd docs
-slop-doc build
-slop-doc open
+slop-doc build        # one-off build
+slop-doc open         # build + serve + live reload
 ```
 
 ---
@@ -665,7 +665,8 @@ docs/build/
 
 | Module | Purpose |
 |---|---|
-| `builder.py` | Build orchestrator — drives the full pipeline, CLI commands (`init`, `build`, `open`) |
+| `builder.py` | Build orchestrator — drives the full pipeline, CLI commands (`init`, `build`, `open`), live-reload server |
+| `watcher.py` | File watcher — monitors docs folder for changes, debounced rebuild via `watchdog` |
 | `tree_builder.py` | Walks the docs folder, builds the navigation tree of `Node` objects |
 | `frontmatter.py` | Parses relaxed JSON front-matter from `.md` files |
 | `parser.py` | Python AST source parser — extracts classes, functions, constants, docstrings |

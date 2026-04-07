@@ -448,45 +448,136 @@ def _cmd_init(name: str) -> int:
     return 0
 
 
+_LIVERELOAD_SCRIPT = b"""<script>
+(function(){
+  var es=new EventSource('/__livereload');
+  es.onmessage=function(e){if(e.data==='reload')location.reload();};
+  es.onerror=function(){es.close();setTimeout(function(){
+    es=new EventSource('/__livereload');},2000);};
+})();
+</script>"""
+
+
 def _cmd_open(docs_root: str, port: int = 8000) -> int:
-    """Serve built docs via local HTTP server and open in browser."""
+    """Build, serve, watch for changes and live-reload the browser."""
+    import threading
     import webbrowser
     from http.server import HTTPServer, SimpleHTTPRequestHandler
-    from functools import partial
+    from socketserver import ThreadingMixIn
 
-    class _QuietHandler(SimpleHTTPRequestHandler):
-        def log_message(self, format, *args):
-            pass  # suppress request logging
+    from slop_doc.watcher import DocsWatcher
 
     config = _read_project_config(docs_root)
     output_dir = os.path.join(docs_root, config.get('output_dir', 'build'))
-    # Use port from config if CLI didn't override the default
     if port == 8000:
         port = int(config.get('port', 8000))
-    index_html = os.path.join(output_dir, 'index.html')
 
-    if not os.path.isfile(index_html):
-        print(f"Error: '{index_html}' not found. Run 'slop-doc build' first.", file=sys.stderr)
-        return 1
+    # --- initial build ---
+    print("Building docs...")
+    build_docs(docs_root)
 
-    handler = partial(_QuietHandler, directory=output_dir)
-    # Find a free port starting from the requested one
+    # --- SSE state (shared between handler instances) ---
+    sse_clients: list[threading.Event] = []
+    sse_lock = threading.Lock()
+
+    def _notify_clients():
+        with sse_lock:
+            for ev in sse_clients:
+                ev.set()
+
+    def _rebuild():
+        print("  Rebuilding...")
+        build_docs(docs_root)
+        print("  Done.")
+
+    # --- HTTP handler with livereload injection ---
+    class _LiveHandler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=output_dir, **kwargs)
+
+        def log_message(self, format, *args):
+            pass
+
+        def _handle_sse(self):
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.end_headers()
+            ev = threading.Event()
+            with sse_lock:
+                sse_clients.append(ev)
+            try:
+                while True:
+                    ev.wait()
+                    ev.clear()
+                    self.wfile.write(b'data: reload\n\n')
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            finally:
+                with sse_lock:
+                    if ev in sse_clients:
+                        sse_clients.remove(ev)
+
+        def do_GET(self):
+            if self.path == '/__livereload':
+                return self._handle_sse()
+
+            # Resolve the file path
+            path = self.translate_path(self.path)
+            if os.path.isdir(path):
+                index = os.path.join(path, 'index.html')
+                if os.path.isfile(index):
+                    path = index
+                else:
+                    return super().do_GET()
+
+            if path.endswith('.html') and os.path.isfile(path):
+                with open(path, 'rb') as f:
+                    data = f.read()
+                if b'</body>' in data:
+                    data = data.replace(b'</body>', _LIVERELOAD_SCRIPT + b'\n</body>', 1)
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
+            super().do_GET()
+
+    class _ThreadedServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
+
+    # --- start watcher ---
+    watcher = DocsWatcher(docs_root, output_dir,
+                          rebuild_fn=_rebuild,
+                          on_rebuild=_notify_clients)
+    watcher.start()
+
+    # --- find free port & start server ---
     for p in range(port, port + 100):
         try:
-            server = HTTPServer(('127.0.0.1', p), handler)
+            server = _ThreadedServer(('127.0.0.1', p), _LiveHandler)
             break
         except OSError:
             continue
     else:
+        watcher.stop()
         print("Error: could not find a free port.", file=sys.stderr)
         return 1
 
     url = f'http://127.0.0.1:{p}'
+    print(f"Serving at {url}  (Ctrl+C to stop)")
     webbrowser.open(url)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        pass
+    finally:
+        watcher.stop()
         server.server_close()
     return 0
 
