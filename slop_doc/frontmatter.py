@@ -21,7 +21,7 @@ class FrontmatterError(Exception):
 class PageMeta:
     """Parsed metadata from a .md file's front-matter."""
     title: str = ""
-    default_source_folder: str | None = None
+    py_source: str | None = None
     children: dict | None = None  # {"classes": [...], "functions": [...]}
     order: int | None = None      # explicit sort order (lower = first)
     raw: dict = field(default_factory=dict)
@@ -72,7 +72,7 @@ def parse_frontmatter(content: str) -> tuple[PageMeta, str]:
 
     meta = PageMeta(
         title=data.get('title', ''),
-        default_source_folder=data.get('default_source_folder'),
+        py_source=data.get('py_source'),
         children=data.get('children'),
         order=order,
         raw=data,

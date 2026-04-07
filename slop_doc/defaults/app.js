@@ -6,6 +6,7 @@
 
   function getIndex() { return window.__SEARCH_INDEX__ || []; }
   function getPrefix() { return window.__SEARCH_PREFIX__ || ''; }
+  function getSettings() { return window.__SLOP_SETTINGS__ || {}; }
 
   /** Resolve a relative href to an absolute URL using a temp anchor. */
   function toAbsolute(href) {
@@ -113,6 +114,10 @@
     void content.offsetHeight;
     content.innerHTML = newContent.innerHTML;
     content.style.animation = '';
+    // Update source path for VS Code open
+    var newSourcePath = newContent.getAttribute('data-source-path');
+    if (newSourcePath) { content.setAttribute('data-source-path', newSourcePath); }
+    else { content.removeAttribute('data-source-path'); }
 
     // Swap right sidebar
     var sidebarRight = document.querySelector('.sidebar-right');
@@ -141,7 +146,9 @@
       var text = scripts[i].textContent;
       if (text.indexOf('__SEARCH_INDEX__') !== -1) {
         try {
-          var idxMatch = text.match(/window\.__SEARCH_INDEX__\s*=\s*([\s\S]*?);[\s\n]*\/\//);
+          var settingsMatch = text.match(/window\.__SLOP_SETTINGS__\s*=\s*(\{[^}]*\});/);
+          if (settingsMatch) window.__SLOP_SETTINGS__ = JSON.parse(settingsMatch[1]);
+          var idxMatch = text.match(/window\.__SEARCH_INDEX__\s*=\s*([\s\S]*?);[\s\n]*window\./);
           if (!idxMatch) idxMatch = text.match(/window\.__SEARCH_INDEX__\s*=\s*([\s\S]*?);/);
           var prefixMatch = text.match(/window\.__SEARCH_PREFIX__\s*=\s*'([^']*)'/);
           if (idxMatch) window.__SEARCH_INDEX__ = JSON.parse(idxMatch[1]);
@@ -176,9 +183,16 @@
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
     catch (e) { saved = {}; }
 
+    var hasUserState = Object.keys(saved).length > 0;
+    var defaultCollapsed = getSettings().default_collapsed;
+
     document.querySelectorAll('[data-nav-id]').forEach(function (li) {
       var id = li.getAttribute('data-nav-id');
-      if (id in saved) setExpanded(li, saved[id]);
+      if (id in saved) {
+        setExpanded(li, saved[id]);
+      } else if (!hasUserState && defaultCollapsed) {
+        setExpanded(li, false);
+      }
     });
 
     // Re-bind toggle handlers
@@ -201,12 +215,16 @@
     document.querySelectorAll('.has-children > a').forEach(function (link) {
       link.addEventListener('click', function () {
         var li = link.closest('[data-nav-id]');
-        if (!li || li.classList.contains('expanded')) return;
-        setExpanded(li, true);
+        if (!li) return;
+        // Container links (no real page) toggle; normal links only expand
+        var isContainer = link.classList.contains('nav-container');
+        if (!isContainer && li.classList.contains('expanded')) return;
+        var nowExpanded = isContainer ? !li.classList.contains('expanded') : true;
+        setExpanded(li, nowExpanded);
         var state;
         try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
         catch (e) { state = {}; }
-        state[li.getAttribute('data-nav-id')] = true;
+        state[li.getAttribute('data-nav-id')] = nowExpanded;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
       });
     });
@@ -263,7 +281,7 @@
       li.style.cssText = 'padding:8px 14px;color:#888;font-size:14px';
       dropdown.appendChild(li);
     } else {
-      results.slice(0, 12).forEach(function (r) {
+      results.slice(0, getSettings().max_search_results || 12).forEach(function (r) {
         var li = document.createElement('li');
         var a = document.createElement('a');
         a.href = getPrefix() + r.url;
@@ -426,6 +444,21 @@
     });
   }
 
+  /* ── Open source in VS Code (dblclick) ──────────────────── */
+
+  function initVscodeOpen() {
+    var editor = getSettings().editor;
+    if (!editor) return;
+    var content = document.querySelector('.content');
+    if (!content) return;
+    content.addEventListener('dblclick', function (e) {
+      if (e.target.closest('a, input, button, textarea, select, code, pre')) return;
+      var path = content.getAttribute('data-source-path');
+      if (!path) return;
+      window.open(editor + '://file/' + path, '_self');
+    });
+  }
+
   /* ── Init ──────────────────────────────────────────────── */
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -436,6 +469,7 @@
     initSidebarSync();
     initSpaClickHandler();
     initPdfViewer();
+    initVscodeOpen();
   });
 
 }());

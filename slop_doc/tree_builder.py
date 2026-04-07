@@ -5,7 +5,7 @@ page node; each folder with a ``root.md`` becomes a group node.  No
 ``.sdoc.tree`` or ``.sdoc`` files are involved.
 
 Source folder inheritance:
-    ``default_source_folder`` set in a ``root.md`` front-matter is inherited by
+    ``py_source`` set in a ``root.md`` front-matter is inherited by
     all ``.md`` siblings and by child folders (unless overridden by a deeper
     ``root.md``).
 """
@@ -40,6 +40,7 @@ class Node:
     auto_function: str | None = None  # function name for auto-generated function pages
     auto_source_file: str | None = None  # source file basename (no ext) for file-function pages
     order: int | None = None          # explicit sort order (lower = first)
+    md_source_path: str | None = None  # absolute path to the .md file that generated this node
     meta: PageMeta = field(default_factory=PageMeta)
 
 
@@ -57,12 +58,17 @@ def slugify(text: str) -> str:
 def _title_from_filename(filename: str) -> str:
     """Derive a human-readable title from a filename.
 
-    Strips numeric prefix and extension:
-        ``1.md`` → ``1``
-        ``getting-started.md`` → ``getting-started``
+    Strips extension, leading numeric prefix, and cleans separators:
+        ``1-getting_started.md`` → ``Getting Started``
+        ``sOme__texT.md`` → ``Some Text``
     """
     name = os.path.splitext(filename)[0]
-    return name
+    # Strip leading numeric prefix (e.g. "1-", "02-")
+    name = re.sub(r'^\d+[-._]\s*', '', name)
+    # Replace separators (-, _, multiple spaces) with single space
+    name = re.sub(r'[-_]+', ' ', name)
+    # Title case each word
+    return name.strip().title()
 
 
 def _sort_key(filename: str) -> tuple:
@@ -132,7 +138,7 @@ def _walk_folder(
     Args:
         folder_path: Absolute path to the folder.
         parent_output_prefix: Output path prefix from parent (e.g., "api/core").
-        inherited_source: default_source_folder inherited from ancestor.
+        inherited_source: py_source inherited from ancestor.
         source_data_cache: Shared cache of parsed SourceData.
         path_base: Project root (parent of docs root) for resolving relative paths.
         is_root: True for the top-level docs folder (children at top level).
@@ -157,10 +163,10 @@ def _walk_folder(
         except FrontmatterError as e:
             raise TreeBuilderError(f"Error in {root_md_path}: {e}")
 
-    folder_title = folder_meta.title or os.path.basename(folder_path)
+    folder_title = folder_meta.title or _title_from_filename(os.path.basename(folder_path))
 
     # Resolve source folder for this level (relative to project root, not current folder)
-    local_source = _resolve_source_folder(folder_meta.default_source_folder, path_base, root_md_path)
+    local_source = _resolve_source_folder(folder_meta.py_source, path_base, root_md_path)
     effective_source = local_source or inherited_source
 
     # Build output prefix for this folder
@@ -172,12 +178,20 @@ def _walk_folder(
         output_prefix = slugify(folder_title)
 
     # Create the folder node
+    # If no root.md exists, this is a container node (no page, just a group in nav)
+    has_root = os.path.isfile(root_md_path)
+    if has_root:
+        folder_output_path = f"{output_prefix}/index.html" if output_prefix else ""
+    else:
+        folder_output_path = ""  # container node — no page generated
+
     folder_node = Node(
         title=folder_title,
         content=folder_body,
         source=effective_source,
-        output_path=f"{output_prefix}/index.html" if output_prefix else "",
+        output_path=folder_output_path,
         order=folder_meta.order,
+        md_source_path=os.path.abspath(root_md_path) if has_root else None,
         meta=folder_meta,
     )
 
@@ -202,7 +216,6 @@ def _walk_folder(
     md_files.sort(key=_sort_key)
     subdirs.sort(key=_sort_key)
 
-    has_root = os.path.isfile(root_md_path)
     has_md_files = bool(md_files)
 
     # --- Process .md files ---
@@ -225,9 +238,8 @@ def _walk_folder(
     # then nodes without order keep their original position.
     _sort_by_order(folder_node.children)
 
-    # --- Skip folders with no content ---
+    # --- Skip folders with no content at all ---
     if not has_root and not has_md_files and not folder_node.children:
-        print(f"WARNING: Folder has no root.md and no .md files — skipping: {folder_path}", file=sys.stderr)
         return None
 
     return folder_node
@@ -264,10 +276,10 @@ def _process_md_file(
         raise TreeBuilderError(f"Error in {md_path}: {e}")
 
     # Title: front-matter title > first heading > filename
-    title = meta.title or _extract_first_heading(body) or _title_from_filename(filename)
+    title = meta.title or _title_from_filename(filename)
 
     # Resolve source folder (relative to project root)
-    local_source = _resolve_source_folder(meta.default_source_folder, path_base, md_path)
+    local_source = _resolve_source_folder(meta.py_source, path_base, md_path)
     effective_source = local_source or inherited_source
 
     # Pre-populate source_data cache so {{classes}} can be expanded in body
@@ -287,6 +299,7 @@ def _process_md_file(
         source=effective_source,
         output_path=output_path,
         order=meta.order,
+        md_source_path=os.path.abspath(md_path),
         meta=meta,
     )
 
@@ -385,7 +398,7 @@ def _expand_children(
 # ---------------------------------------------------------------------------
 
 def _resolve_source_folder(raw_path: str | None, path_base: str, context_file: str = "") -> str | None:
-    """Resolve a default_source_folder path relative to the project root.
+    """Resolve a py_source path relative to the project root.
 
     All relative paths in .md files are resolved against *path_base* (the
     parent directory of the docs root), NOT against the .md file's own folder.
@@ -406,7 +419,7 @@ def _resolve_source_folder(raw_path: str | None, path_base: str, context_file: s
     if os.path.isdir(resolved):
         return resolved
     raise TreeBuilderError(
-        f"default_source_folder '{raw_path}' resolved to '{resolved}' "
+        f"py_source '{raw_path}' resolved to '{resolved}' "
         f"which does not exist (in {context_file or 'unknown file'})"
     )
 

@@ -123,19 +123,11 @@ def _generate_auto_class_content(class_name: str) -> str:
 
 %class_info({class_name})%
 
-## Properties
-
 %properties({class_name})%
-
-## Public Methods
 
 %methods_table({class_name})%
 
-## Private Methods
-
 %methods_table({class_name}, private)%
-
-## Method Details
 
 %methods_details({class_name})%
 """
@@ -187,20 +179,6 @@ def _generate_auto_file_functions_content(
     return '\n'.join(parts)
 
 
-# ---------------------------------------------------------------------------
-# Empty section removal
-# ---------------------------------------------------------------------------
-
-_EMPTY_SECTION_RE = re.compile(
-    r'^(#{1,6}\s+[^\n]+)\n+(?=#{1,6}\s|\Z)',
-    re.MULTILINE,
-)
-
-
-def _strip_empty_sections(text: str) -> str:
-    """Remove Markdown headings that have no content before the next heading or EOF."""
-    return _EMPTY_SECTION_RE.sub('', text)
-
 
 # ---------------------------------------------------------------------------
 # Build pipeline
@@ -224,6 +202,14 @@ def build_docs(docs_root: str) -> None:
         assets_dir_raw = config.get('assets_dir')
         assets_dir = os.path.join(docs_root, assets_dir_raw) if assets_dir_raw else None
 
+        # --- Settings (all optional, safe defaults) ---
+        settings = {
+            'editor': config.get('editor', ''),
+            'max_search_results': int(config.get('max_search_results', 12)),
+            'default_collapsed': bool(config.get('default_collapsed', False)),
+        }
+        exclude_dirs_extra = config.get('exclude_dirs', [])
+
         defaults_pkg = importlib.resources.files("slop_doc.defaults")
         defaults_dir = str(defaults_pkg)
 
@@ -231,7 +217,8 @@ def build_docs(docs_root: str) -> None:
 
         # --- Step 1: Build tree ---
         output_dir_name = os.path.basename(output_dir.rstrip('/\\'))
-        root_node, source_data_by_folder = build_tree_with_root(docs_root, exclude_dirs={output_dir_name})
+        exclude = {output_dir_name} | set(exclude_dirs_extra)
+        root_node, source_data_by_folder = build_tree_with_root(docs_root, exclude_dirs=exclude)
         tree = root_node.children  # top-level nav tree
 
         # --- Step 2: Build cross-link index ---
@@ -246,6 +233,7 @@ def build_docs(docs_root: str) -> None:
                 root_node, root_node.content, tree, index,
                 project_name, version, search_index, output_dir,
                 source_data_by_folder, is_index=True, docs_root=docs_root,
+                settings=settings,
             )
 
         # --- Step 5: Build all pages ---
@@ -279,6 +267,7 @@ def build_docs(docs_root: str) -> None:
                             file_page_node, body, tree, index,
                             project_name, version, search_index, output_dir,
                             source_data_by_folder, is_raw_html=True, docs_root=docs_root,
+                            settings=settings,
                         )
                         pages_built += 1
                 continue
@@ -301,6 +290,9 @@ def build_docs(docs_root: str) -> None:
             if not body and not node.children:
                 continue  # skip empty container nodes without content
 
+            if not node.output_path:
+                continue  # container node (no root.md) — no page to generate
+
             if not body:
                 # Folder node with children but no content — generate a simple listing
                 body = f"# {node.title}\n"
@@ -310,6 +302,7 @@ def build_docs(docs_root: str) -> None:
                 project_name, version, search_index, output_dir,
                 source_data_by_folder,
                 is_raw_html=raw_html, docs_root=docs_root,
+                settings=settings,
             )
             pages_built += 1
 
@@ -338,6 +331,7 @@ def _build_page(
     is_index: bool = False,
     is_raw_html: bool = False,
     docs_root: str = "",
+    settings: dict | None = None,
 ) -> None:
     """Render and write a single page."""
     # Get source data for this node
@@ -361,9 +355,6 @@ def _build_page(
             # Render remaining {{data}} tags inline (bare tags not inside %...%)
             rendered = render_data_tags_inline(rendered, source_data, folder_slug)
 
-            # Strip empty sections (heading followed by nothing before next heading or EOF)
-            rendered = _strip_empty_sections(rendered)
-
             # Markdown → HTML
             html_content = markdown_to_html(rendered)
 
@@ -371,7 +362,7 @@ def _build_page(
         html_content = resolve_links(html_content, index, node.output_path)
 
         # Assemble 3-column page
-        page_html = assemble_page(html_content, node, tree, project_name, version, search_index)
+        page_html = assemble_page(html_content, node, tree, project_name, version, search_index, settings=settings)
 
         # Write
         if is_index:
@@ -446,7 +437,8 @@ def _cmd_init(name: str) -> int:
                 '    "title": "My Project",\n'
                 '    "project_name": "My Project",\n'
                 '    "version": "1.0.0",\n'
-                '    "output_dir": "build"\n'
+                '    "output_dir": "build",\n'
+                '    "editor": ""\n'
                 '}\n\n'
                 '# Welcome\n\n'
                 'Edit this file and add .md pages to build your documentation.\n')
@@ -468,6 +460,9 @@ def _cmd_open(docs_root: str, port: int = 8000) -> int:
 
     config = _read_project_config(docs_root)
     output_dir = os.path.join(docs_root, config.get('output_dir', 'build'))
+    # Use port from config if CLI didn't override the default
+    if port == 8000:
+        port = int(config.get('port', 8000))
     index_html = os.path.join(output_dir, 'index.html')
 
     if not os.path.isfile(index_html):

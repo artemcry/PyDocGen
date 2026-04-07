@@ -120,22 +120,3 @@ def _fix_code_blocks(html: str) -> str:
     # Fix standalone <pre> tags
     pattern = r'<pre>(.*?)</pre>'
     return re.sub(pattern, fix_pre_code, html, flags=re.DOTALL)
-
-
-def extract_headings(html: str) -> list[tuple[str, str]]:
-    """Extract h2 and h3 headings from HTML for table of contents.
-
-    Args:
-        html: HTML string.
-
-    Returns:
-        List of (anchor_id, heading_text) tuples.
-    """
-    headings = []
-    pattern = r'<h([23])[^>]*id="([^"]+)"[^>]*>([^<]+)</h[23]>'
-    for match in re.finditer(pattern, html):
-        level = match.group(1)
-        anchor_id = match.group(2)
-        text = match.group(3)
-        headings.append((level, anchor_id, text))
-    return [(anchor_id, text) for level, anchor_id, text in headings]

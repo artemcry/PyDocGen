@@ -119,15 +119,6 @@ def _compute_relative_path(from_path: str, to_path: str) -> str:
     return rel.replace('\\', '/')
 
 
-def _get_folder_slug(output_path: str) -> str:
-    """Extract folder slug from output path."""
-    base = output_path.replace('.html', '')
-    parts = base.split('/')
-    if len(parts) >= 2:
-        return parts[-2] if parts[-1] != 'index' else parts[-2]
-    return ''
-
-
 # ---------------------------------------------------------------------------
 # Index building  (adapted for new Node structure)
 # ---------------------------------------------------------------------------

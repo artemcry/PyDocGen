@@ -13,7 +13,11 @@
       "Bash(pip show:*)",
       "Bash(rm -rf /d/Projects/6/tttt/web-docs)",
       "Bash(python -m slop_doc init --name web-docs)",
-      "Bash(python -m slop_doc build -d \"D:\\\\Projects\\\\scalar-parallax\\\\documentation\\\\docs-web\")"
+      "Bash(python -m slop_doc build -d \"D:\\\\Projects\\\\scalar-parallax\\\\documentation\\\\docs-web\")",
+      "Bash(python -m slop_doc.builder build -d /d/Projects/scalar-parallax/documentation/docs-web)",
+      "Read(//d/Projects/scalar-parallax/documentation/docs-web/**)",
+      "Bash(python -m slop_doc.builder build -d .)",
+      "Bash(python -c \"from slop_doc.builder import build_docs; build_docs\\('.'\\)\")"
     ],
     "defaultMode": "bypassPermissions"
   }

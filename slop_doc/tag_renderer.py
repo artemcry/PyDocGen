@@ -66,7 +66,7 @@ def expand_data_tag(tag_name: str, source_data: SourceData | None) -> list[str]:
     if source_data is None:
         raise TagRendererError(
             f"Tag '{{{{{tag_name}}}}}' requires a source folder but none is set. "
-            f"Set 'default_source_folder' in the page or a parent root.md front-matter."
+            f"Set 'py_source' in the page or a parent root.md front-matter."
         )
 
     # Mapping: tag_name -> (flat_attr, rec_attr)
@@ -379,7 +379,11 @@ def _render_constants_table(source_data: SourceData, names: list[str]) -> str:
 
 
 def _render_class_info(class_data: ClassData, source_data: SourceData | None = None, folder_slug: str = "") -> str:
-    rel_file = os.path.relpath(class_data.source_file).replace('\\', '/')
+    try:
+        rel_file = os.path.relpath(class_data.source_file).replace('\\', '/')
+    except ValueError:
+        # Cross-drive on Windows — fall back to basename
+        rel_file = os.path.basename(class_data.source_file)
     module_name = os.path.splitext(os.path.basename(class_data.source_file))[0]
 
     # Render base classes with cross-links for project classes
@@ -413,6 +417,7 @@ def _render_properties(class_data: ClassData) -> str:
         rows.append(f"<tr><td>{prop.name}</td><td>{prop.type or 'Unknown'}</td><td>{prop.description}</td></tr>")
 
     return (
+        "<h2>Properties</h2>\n"
         "<table class='properties-table'>\n"
         "<thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>\n"
         f"<tbody>\n{''.join(rows)}\n</tbody>\n</table>"
@@ -430,6 +435,8 @@ def _render_methods_summary(
     if not methods:
         return ""
 
+    heading = "Private Methods" if method_type == "private" else "Public Methods"
+
     rows = []
     for method in methods:
         sig = _render_function_signature(method, source_data, folder_slug)
@@ -438,6 +445,7 @@ def _render_methods_summary(
         rows.append(f"<tr><td>{link}{sig[len(method.name):]}</td><td>{desc_html}</td></tr>")
 
     return (
+        f"<h2>{heading}</h2>\n"
         "<table class='methods-table'>\n"
         "<thead><tr><th>Signature</th><th>Description</th></tr></thead>\n"
         f"<tbody>\n{''.join(rows)}\n</tbody>\n</table>"
@@ -449,7 +457,7 @@ def _render_methods_details(class_data: ClassData, source_data: SourceData, fold
     if not methods:
         return ""
 
-    parts = []
+    parts = ['<h2>Method Details</h2>\n']
     for method in methods:
         # Build params string
         params_parts = []

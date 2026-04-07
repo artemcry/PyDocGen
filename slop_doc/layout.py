@@ -101,8 +101,8 @@ def _generate_nav_node(node: Node, current_path: str | None, page_path: str | No
     html = f'<li class="{classes_str}"{nav_attr}>\n'
 
     if is_container or not node.output_path:
-        # Container node — not a clickable link
-        html += f'<span class="nav-label">{node.title}</span>\n'
+        # Container node — render as link that toggles children (no navigation)
+        html += f'<a href="javascript:void(0)" class="nav-container">{node.title}</a>\n'
     else:
         href = _relative_url(page_path, node.output_path) if page_path else node.output_path
         extra = ' class="active"' if is_current else ''
@@ -218,7 +218,7 @@ def generate_contents_sidebar(html_content: str) -> str:
 
 def generate_search_index(
     tree: list[Node],
-    source_data_by_folder: dict[str, any],
+    source_data_by_folder: dict,
 ) -> str:
     """Generate search index JSON.
 
@@ -328,7 +328,8 @@ def assemble_page(
     tree: list[Node],
     project_name: str,
     version: str,
-    search_index: str = ''
+    search_index: str = '',
+    settings: dict | None = None,
 ) -> str:
     """Assemble a complete HTML page with 3-column layout.
 
@@ -339,6 +340,7 @@ def assemble_page(
         project_name: Project name for header.
         version: Version string.
         search_index: JSON string for search index (embedded inline).
+        settings: Optional project settings dict (editor, max_search_results, etc.).
 
     Returns:
         Complete HTML page.
@@ -380,7 +382,7 @@ def assemble_page(
     <nav class="sidebar-left">
       {nav_html}
     </nav>
-    <main class="content">
+    <main class="content"{f' data-source-path="{node.md_source_path}"' if node.md_source_path else ''}>
       {content}
     </main>
     <aside class="sidebar-right">
@@ -389,9 +391,8 @@ def assemble_page(
   </div>
   <script src="{prefix}assets/app.js"></script>
   <script>
-  // Embedded search index (avoids XHR CORS issues with file:// protocol)
+  window.__SLOP_SETTINGS__ = {json.dumps(settings or {{}})};
   window.__SEARCH_INDEX__ = {search_index};
-  // Prefix for search result URLs (computed server-side by layout.py)
   window.__SEARCH_PREFIX__ = '{prefix}';
   </script>
 </body>
@@ -413,26 +414,14 @@ def _render_breadcrumb(items: list[BreadcrumbItem], project_name: str, page_path
     """
     prefix = _assets_prefix(page_path)
     root_href = f'{prefix}index.html' if prefix else 'index.html'
-    html = f'<a href="{root_href}">{project_name}</a>'
+    html = f'<a href="{root_href}">Home</a>'
     for item in items:
-        href = _relative_url(page_path, item.url) if page_path else item.url
-        html += f' &gt; <a href="{href}">{item.title}</a>'
+        if not item.url:
+            # Container node (no page) — render as plain text in breadcrumb
+            html += f' &gt; <span>{item.title}</span>'
+        else:
+            href = _relative_url(page_path, item.url) if page_path else item.url
+            html += f' &gt; <a href="{href}">{item.title}</a>'
     return html
 
 
-def copy_assets(assets_dir: str, output_dir: str) -> None:
-    """Copy assets directory to output.
-
-    Args:
-        assets_dir: Source assets directory.
-        output_dir: Destination directory.
-    """
-    import shutil
-
-    if not os.path.exists(assets_dir):
-        return
-
-    output_assets = os.path.join(output_dir, 'assets')
-    if os.path.exists(output_assets):
-        shutil.rmtree(output_assets)
-    shutil.copytree(assets_dir, output_assets)

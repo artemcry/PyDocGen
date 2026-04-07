@@ -31,26 +31,31 @@ slop-doc open -d docs
 |---|---|
 | `slop-doc init [--name <folder>]` | Create a new docs folder with a starter `root.md`. Default name: `docs` |
 | `slop-doc build [-d <dir>]` | Build documentation. Looks for `root.md` in `-d` dir or current directory |
-| `slop-doc open [-d <dir>] [-p <port>]` | Serve built docs via local HTTP server and open in browser. SPA navigation works here (default port 8000) |
+| `slop-doc open [-d <dir>] [-p <port>]` | Serve built docs via local HTTP server and open in browser. Default port from config or 8000 |
 
 ---
 
 ## How It Works
 
-The folder structure **is** the documentation tree. Every `.md` file becomes a page; every subfolder with a `root.md` becomes a folder node in the navigation.
+The folder structure **is** the documentation tree. Every `.md` file becomes a page; every subfolder with a `root.md` becomes a folder node in the navigation. Subfolders **without** `root.md` but containing `.md` files become **container nodes** — they appear in the nav tree and group their children, but don't open a page themselves.
 
 ```
-my-docs/                    ← docs root (contains root.md)
-├── root.md                 ← project config + landing page
-├── getting-started.md      ← top-level page
-├── 1-installation.md       ← sorted by numeric prefix (prefix stripped from title)
-├── 2-usage.md
-└── api/                    ← subfolder = folder node in nav
-    ├── root.md             ← folder config + folder landing page
-    ├── overview.md         ← page inside the folder
-    └── advanced/
-        └── root.md
+my-docs/                    <- docs root (contains root.md)
++-- root.md                 <- project config + landing page
++-- getting-started.md
++-- installation.md
++-- usage.md
++-- api/                    <- subfolder with root.md = folder node
+|   +-- root.md             <- folder config + folder landing page
+|   +-- overview.md         <- page inside the folder
+|   +-- advanced/
+|       +-- root.md
++-- guides/                 <- subfolder WITHOUT root.md = container node
+    +-- tutorial.md         <- children appear under "Guides" in nav
+    +-- faq.md
 ```
+
+**Container nodes**: folders without `root.md` derive their title from the folder name (same rules as `.md` files — numeric prefixes stripped, separators cleaned, title-cased). Clicking a container node in the nav tree toggles its children — no page is generated.
 
 **Build output**: a self-contained HTML site with `assets/style.css`, `assets/app.js`, and one `.html` per page. Use `slop-doc open` to serve locally — pages load via SPA navigation (no full reload, smooth fade transitions). Also works with `file://` protocol (falls back to standard page loads).
 
@@ -63,7 +68,7 @@ Each `.md` file can start with a JSON config block. The block is relaxed JSON �
 ```markdown
 {
     "title": "My Page",
-    "default_source_folder": "../src/mypackage"
+    "py_source": "../src/mypackage"
 }
 
 # My Page
@@ -76,7 +81,7 @@ Page content here...
 | Key | Type | Description |
 |---|---|---|
 | `title` | `string` | Display name in the nav tree. Falls back to the first `#` heading, then filename |
-| `default_source_folder` | `string` | Path to Python source folder for this page (and its children). Resolved relative to the **parent directory** of the docs root |
+| `py_source` | `string` | Path to Python source folder for this page (and its children). Resolved relative to the **parent directory** of the docs root |
 | `children` | `object` | Auto-generated child pages from source code. See [Children](#children) |
 | `order` | `int` | Explicit sort position in the nav tree (lower = shown first). Optional — unordered pages keep their filename-based position after ordered ones |
 
@@ -88,6 +93,11 @@ Page content here...
 | `version` | `string` | `""` | Shown in page titles |
 | `output_dir` | `string` | `"build"` | Output folder (relative to docs root) |
 | `assets_dir` | `string` | — | Custom assets folder (relative to docs root). Files here override defaults |
+| `editor` | `string` | `""` | Editor URI scheme for double-click open (`"vscode"`, `"vscodium"`, `"cursor"`). Empty to disable |
+| `exclude_dirs` | `list` | `[]` | Extra directory names to skip when scanning the docs folder |
+| `max_search_results` | `int` | `12` | Maximum number of results in the search dropdown |
+| `default_collapsed` | `bool` | `false` | If true, the nav tree starts fully collapsed on first visit |
+| `port` | `int` | `8000` | Default port for `slop-doc open` (overridden by CLI `-p`) |
 
 ### Example root.md
 
@@ -97,7 +107,12 @@ Page content here...
     "project_name": "MyProject",
     "version": "2.1.0",
     "output_dir": "build",
-    "default_source_folder": "../src/myproject"
+    "py_source": "../src/myproject",
+    "editor": "vscode",
+    "exclude_dirs": ["drafts", "archive"],
+    "max_search_results": 8,
+    "default_collapsed": false,
+    "port": 9000
 }
 
 # Welcome to MyProject
@@ -109,15 +124,15 @@ This is the landing page.
 
 ## Source Folder
 
-The `default_source_folder` key tells slop-doc where to find your Python source code. It is **inherited** by child pages — set it once on a folder's `root.md` and all pages inside that folder use it automatically.
+The `py_source` key tells slop-doc where to find your Python source code. It is **inherited** by child pages — set it once on a folder's `root.md` and all pages inside that folder use it automatically.
 
-A deeper `root.md` or individual page can override it with its own `default_source_folder`.
+A deeper `root.md` or individual page can override it with its own `py_source`.
 
 **Path resolution**: always relative to the **parent of the docs root**, not relative to the `.md` file. For example, if your docs are in `project/docs/` and your source is in `project/src/mypackage/`, use:
 
 ```json
 {
-    "default_source_folder": "../src/mypackage"
+    "py_source": "../src/mypackage"
 }
 ```
 
@@ -175,7 +190,7 @@ The `children` key in front-matter generates child pages from source code. Each 
 ```json
 {
     "title": "API Reference",
-    "default_source_folder": "../src/mypackage",
+    "py_source": "../src/mypackage",
     "children": {
         "classes": "{{classes}}"
     }
@@ -218,7 +233,7 @@ You can also mix tag expansion with explicit names:
 | `protocols` | Same, filtered to protocols |
 | `exceptions` | Same, filtered to exceptions |
 | `plain_classes` | Same, filtered to plain classes |
-| `functions` | Function pages (name + stub) |
+| `functions` | Function pages grouped by source file, with summary table and detail blocks |
 
 ### Auto-generated class page content
 
@@ -233,13 +248,13 @@ Each auto-generated class page contains (empty sections are automatically hidden
 (module, file:line, base classes)
 
 ## Properties
-(table of @property methods — hidden if none)
+(table of @property methods -- hidden if none)
 
 ## Public Methods
-(summary table with links — hidden if none)
+(summary table with links -- hidden if none)
 
 ## Private Methods
-(summary table — hidden if none)
+(summary table -- hidden if none)
 
 ## Method Details
 (full signature, parameters, returns, raises for each method)
@@ -284,12 +299,20 @@ The argument can be a `{{tag}}` (expands to all matching items), a comma-separat
 | `%methods_table(ClassName, all)%` | All methods (public + private, including dunder) |
 | `%methods_details(ClassName)%` | Full detail blocks for all methods: signature, params, returns, raises |
 
+### PDF embedding
+
+| Function | Output |
+|---|---|
+| `%pdf(path/to/file.pdf)%` | Embeds a PDF file as an inline viewer (iframe). The PDF is copied to the output directory automatically |
+
+The path is relative to the parent of the docs root (same as `py_source`).
+
 ### Example page
 
 ```markdown
 {
     "title": "API Reference",
-    "default_source_folder": "../src/mypackage"
+    "py_source": "../src/mypackage"
 }
 
 # API Reference
@@ -319,7 +342,7 @@ Link to any class or method page from anywhere in your documentation using `[[do
 | `[[folder/ClassName.method_name]]` | Method anchor on the class page |
 | `[[folder/ClassName\|Display Text]]` | Class page with custom display text |
 
-The `folder` is the **basename** of the source folder. For example, if `default_source_folder` is `../src/mypackage`, the folder slug is `mypackage`.
+The `folder` is the **basename** of the source folder. For example, if `py_source` is `../src/mypackage`, the folder slug is `mypackage`.
 
 ```markdown
 See the [[mypackage/DataSource]] class for details.
@@ -417,6 +440,56 @@ Example using `order`:
 
 ---
 
+## Settings
+
+All settings are optional and have safe defaults. Configure them in the root `root.md` front-matter.
+
+### `editor`
+
+Editor URI scheme for double-click-to-open-source. Double-clicking the content area opens the source `.md` file in the configured editor.
+
+```json
+{ "editor": "vscode" }
+```
+
+Supported values: `"vscode"`, `"vscodium"`, `"cursor"`, or any editor that supports `<scheme>://file/<path>` URIs. Empty string (default) disables the feature.
+
+### `exclude_dirs`
+
+Extra directory names to skip when scanning the docs folder. Useful for draft or archive folders you don't want in the build.
+
+```json
+{ "exclude_dirs": ["drafts", "archive"] }
+```
+
+The output directory is always excluded automatically.
+
+### `max_search_results`
+
+Maximum number of results shown in the search dropdown. Default: `12`.
+
+```json
+{ "max_search_results": 8 }
+```
+
+### `default_collapsed`
+
+If `true`, the navigation tree starts fully collapsed on first visit (before the user has manually expanded anything). Once the user interacts with the nav, their expand/collapse state is persisted in localStorage and takes priority.
+
+```json
+{ "default_collapsed": true }
+```
+
+### `port`
+
+Default port for `slop-doc open`. Overridden by the CLI `-p` flag. Default: `8000`.
+
+```json
+{ "port": 9000 }
+```
+
+---
+
 ## Assets and Styling
 
 slop-doc ships with a default dark theme (`style.css`) and client-side app (`app.js`).
@@ -424,11 +497,13 @@ slop-doc ships with a default dark theme (`style.css`) and client-side app (`app
 The app provides:
 
 - **SPA navigation** — internal links are fetched and swapped without full page reload (falls back to normal navigation on `file://` or fetch failure)
-- **Smooth transitions** — content fade-in, nav tree expand/collapse animation, sidebar width transitions
+- **Smooth transitions** — content fade-in on page switch
 - **Client-side search** — search index is embedded inline in each page (no server required)
 - **Scroll spy** — right sidebar highlights the current section on scroll
 - **Anchor highlight** — clicking an anchor link smoothly scrolls and flashes the target element
 - **Nav tree persistence** — expand/collapse state is saved in localStorage across page loads
+- **PDF viewer** — inline PDF embedding via `%pdf()%` presentation function
+- **Editor integration** — double-click content area to open source file in your editor
 
 To customize styling:
 
@@ -451,18 +526,21 @@ The `app.js` is always copied from defaults (the search index is embedded inline
 
 ```
 my-project/
-├── src/
-│   └── mylib/
-│       ├── __init__.py
-│       ├── client.py        # Client, Config classes
-│       ├── models.py         # User, Product dataclasses
-│       └── exceptions.py     # ApiError, NotFoundError
-└── docs/
-    ├── root.md
-    ├── 1-getting-started.md
-    └── api/
-        ├── root.md
-        └── overview.md
++-- src/
+|   +-- mylib/
+|       +-- __init__.py
+|       +-- client.py        # Client, Config classes
+|       +-- models.py         # User, Product dataclasses
+|       +-- exceptions.py     # ApiError, NotFoundError
++-- docs/
+    +-- root.md
+    +-- 1-getting-started.md
+    +-- guides/              # no root.md = container node in nav
+    |   +-- tutorial.md
+    |   +-- faq.md
+    +-- api/
+        +-- root.md
+        +-- overview.md
 ```
 
 ### docs/root.md
@@ -472,7 +550,8 @@ my-project/
     "title": "MyLib",
     "project_name": "MyLib",
     "version": "1.0.0",
-    "output_dir": "build"
+    "output_dir": "build",
+    "editor": "vscode"
 }
 
 # MyLib Documentation
@@ -487,18 +566,18 @@ Welcome to the MyLib documentation.
 
 ## Installation
 
-​```bash
+```bash
 pip install mylib
-​```
+```
 
 ## Quick Start
 
-​```python
+```python
 from mylib import Client
 
 client = Client(api_key="...")
 result = client.fetch("data")
-​```
+```
 ```
 
 ### docs/api/root.md
@@ -506,7 +585,7 @@ result = client.fetch("data")
 ```markdown
 {
     "title": "API Reference",
-    "default_source_folder": "../../src/mylib",
+    "py_source": "../../src/mylib",
     "children": {
         "classes": "{{classes}}"
     }
@@ -528,7 +607,8 @@ result = client.fetch("data")
 ```
 
 This generates:
-- A nav tree: Getting Started, API Reference > Client, Config, User, Product, ApiError, NotFoundError
+- A nav tree: Getting Started, Guides > Tutorial + FAQ, API Reference > Client, Config, User, Product, ApiError, NotFoundError
+- The "Guides" node is a container — clicking it toggles children, no page is generated
 - Each class gets a full page with methods, properties, signatures
 - Cross-links like `[[mylib/Client]]` work from any page
 
@@ -546,17 +626,20 @@ slop-doc open
 
 ```
 docs/build/
-├── index.html              ← root.md landing page
-├── getting-started.html
-├── api/
-│   ├── index.html          ← api/root.md
-│   ├── client.html         ← auto-generated from children
-│   ├── config.html
-│   ├── user.html
-│   └── ...
-└── assets/
-    ├── style.css
-    └── app.js
++-- index.html              <- root.md landing page
++-- getting-started.html
++-- guides/
+|   +-- tutorial.html
+|   +-- faq.html
++-- api/
+|   +-- index.html          <- api/root.md
+|   +-- client.html         <- auto-generated from children
+|   +-- config.html
+|   +-- user.html
+|   +-- ...
++-- assets/
+    +-- style.css
+    +-- app.js
 ```
 
 ---
@@ -569,6 +652,7 @@ docs/build/
 | `{{tag}}` | Page body or `children` value | Expand to list of items from source |
 | `{{tag_rec}}` | Page body or `children` value | Same but recursive (includes subfolders) |
 | `%function(args)%` | Page body | Render tables/details from source data |
+| `%pdf(path/to/file.pdf)%` | Page body | Embed a PDF file inline |
 | `[[folder/Class]]` | Page body | Cross-link to class page |
 | `[[folder/Class.method]]` | Page body | Cross-link to method anchor |
 | `[[folder/Class\|text]]` | Page body | Cross-link with custom display text |
@@ -596,39 +680,43 @@ When `slop-doc build` runs, the following steps execute in order:
 
 ```
 1. Read project config
-   └─ Parse root.md front-matter → project_name, version, output_dir, assets_dir
+   +-- Parse root.md front-matter -> project_name, version, output_dir, settings
 
 2. Build navigation tree
-   └─ Recursively walk docs folder (tree_builder.py)
-      ├─ Parse each .md front-matter + body
-      ├─ Resolve default_source_folder (inherited down the tree)
-      ├─ Expand children: generators ({{classes}}, {{functions}}, etc.)
-      ├─ Parse Python source folders on demand (cached)
-      └─ Sort nodes: order field → numeric prefix → alphabetical
+   +-- Recursively walk docs folder (tree_builder.py)
+      +-- Parse each .md front-matter + body
+      +-- Resolve py_source (inherited down the tree)
+      +-- Expand children: generators ({{classes}}, {{functions}}, etc.)
+      +-- Parse Python source folders on demand (cached)
+      +-- Create container nodes for folders without root.md
+      +-- Sort nodes: order field -> numeric prefix -> alphabetical
 
 3. Build cross-link index
-   └─ Walk tree, index every class page URL + method anchors
+   +-- Walk tree, index every class page URL + method anchors
 
 4. Generate search index
-   └─ Walk tree, collect all pages/classes/methods/functions/constants → JSON
+   +-- Walk tree, collect all pages/classes/methods/functions/constants -> JSON
 
 5. Render each page
-   │  For each node in the tree:
-   │
-   ├─ Auto-class pages → generate Markdown body from presentation functions
-   ├─ Regular pages → use .md file content
-   ├─ Empty folders with children → simple "# Title" placeholder
-   │
-   └─ Page rendering pipeline:
-      a. Expand %presentation_functions(args)%  →  HTML tables/details
-      b. Expand remaining {{data_tags}}         →  cross-links or inline text
-      c. Strip empty sections                   →  remove headings with no content
-      d. Markdown → HTML                        →  via python-markdown
-      e. Resolve [[cross-links]]                →  relative <a href> tags
-      f. Assemble full HTML page                →  3-column layout with nav, breadcrumb, search index
+   |  For each node in the tree:
+   |
+   +-- Auto-class pages -> generate Markdown body from presentation functions
+   +-- Auto-function pages -> grouped by source file with summary + details
+   +-- Regular pages -> use .md file content
+   +-- Container nodes -> skipped (no page generated)
+   +-- Empty folders with children -> simple "# Title" placeholder
+   |
+   +-- Page rendering pipeline:
+      a. Expand %presentation_functions(args)%  ->  HTML tables/details
+      b. Expand remaining {{data_tags}}         ->  cross-links or inline text
+      c. Strip empty sections                   ->  remove headings with no content
+      d. Markdown -> HTML                       ->  via python-markdown
+      e. Resolve [[cross-links]]                ->  relative <a href> tags
+      f. Assemble full HTML page                ->  3-column layout with nav, breadcrumb, search index, settings
 
 6. Copy assets
-   └─ User assets (override) → default style.css (fallback) → app.js (always from defaults)
+   +-- User assets (override) -> default style.css (fallback) -> app.js (always from defaults)
+   +-- Copy referenced PDF files to output directory
 ```
 
 ### Source Parsing
@@ -650,50 +738,55 @@ Each node in the tree is a `Node` dataclass:
 
 ```
 Node
-├── title              display title
-├── content            markdown body (from .md file)
-├── source             path to Python source folder
-├── output_path        relative output path (e.g. api/client.html)
-├── children           list of child Nodes
-├── order              explicit sort order (from front-matter)
-├── is_auto            true for auto-generated pages
-├── auto_class         class name (for auto class pages)
-├── auto_function      function name (for function nav nodes)
-└── meta               PageMeta from front-matter
++-- title              display title
++-- content            markdown body (from .md file)
++-- source             path to Python source folder
++-- output_path        relative output path (e.g. api/client.html), empty for container nodes
++-- children           list of child Nodes
++-- order              explicit sort order (from front-matter)
++-- is_auto            true for auto-generated pages
++-- auto_class         class name (for auto class pages)
++-- auto_function      function name (for function nav nodes)
++-- auto_source_file   source file basename (for file-function pages)
++-- md_source_path     absolute path to source .md file
++-- meta               PageMeta from front-matter
 ```
 
 Folder structure maps directly to the nav tree:
-- `root.md` in a folder → folder node config + landing page
-- Other `.md` files → child pages
-- Subfolders with `root.md` → nested folder nodes
-- `children` front-matter → auto-generated class/function pages
+- `root.md` in a folder -> folder node config + landing page
+- Other `.md` files -> child pages
+- Subfolders with `root.md` -> nested folder nodes
+- Subfolders without `root.md` but with `.md` files -> container nodes (nav grouping only)
+- `children` front-matter -> auto-generated class/function pages
 
 ### HTML Output
 
-Each page is a self-contained HTML file with embedded search index:
+Each page is a self-contained HTML file with embedded search index and settings:
 
 ```html
 <header>  project name | breadcrumb | search input  </header>
 
-<nav class="sidebar-left">     ← navigation tree (persistent expand/collapse state)
-<main class="content">          ← rendered page content
-<aside class="sidebar-right">   ← table of contents (h2/h3 headings, scroll spy)
+<nav class="sidebar-left">     <- navigation tree (persistent expand/collapse state)
+<main class="content">          <- rendered page content
+<aside class="sidebar-right">   <- table of contents (h2/h3 headings, scroll spy)
 
-<script src="assets/app.js">    ← SPA navigation, search, scroll spy, transitions
-<script>                         ← embedded search index + prefix (inline, no CORS issues)
+<script src="assets/app.js">    <- SPA navigation, search, scroll spy, PDF viewer, editor integration
+<script>                         <- embedded settings, search index + prefix (inline, no CORS issues)
 ```
 
 ### Client-Side App (`app.js`)
 
 The app runs entirely client-side with no build step or dependencies:
 
-- **SPA navigation**: intercepts internal link clicks, fetches pages via `fetch()`, swaps `.content` / sidebar / breadcrumb / nav without full reload. Falls back to normal navigation on `file://` or fetch failure
-- **Search**: filters embedded `__SEARCH_INDEX__` by title substring, renders dropdown
+- **SPA navigation**: intercepts internal link clicks, fetches pages via `fetch()`, swaps `.content` / sidebar / breadcrumb / nav / settings without full reload. Falls back to normal navigation on `file://` or fetch failure
+- **Search**: filters embedded `__SEARCH_INDEX__` by title substring, renders dropdown (limit configurable via `max_search_results`)
 - **Scroll spy**: highlights current section in the right sidebar on scroll
-- **Nav tree**: expand/collapse with localStorage persistence, animated via `max-height` CSS transitions
+- **Nav tree**: expand/collapse with localStorage persistence, animated via `max-height` CSS transitions. Optionally starts collapsed (`default_collapsed` setting)
 - **Anchor navigation**: smooth scroll + highlight flash animation on target element
 - **Sidebar sync**: `ResizeObserver` keeps content margin aligned with dynamic sidebar width
 - **History**: `pushState` / `popstate` for browser back/forward support within SPA
+- **PDF viewer**: renders `%pdf()%` embeds as full-width iframes
+- **Editor integration**: double-click on content area opens source `.md` in configured editor (`editor` setting)
 
 ## License
 
