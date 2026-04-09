@@ -358,6 +358,30 @@ h3 {
 
 p { margin-bottom: 12px; color: #E3E3E3; }
 
+ul, ol {
+  margin: 6px 0 14px;
+  padding-left: 2.4em;
+}
+ul ul, ul ol, ol ul, ol ol {
+  margin: 6px 0 6px;
+}
+li {
+  margin-bottom: 6px;
+  color: #E3E3E3;
+}
+li > p { margin-bottom: 8px; }
+li > p:last-child { margin-bottom: 0; }
+
+blockquote {
+  margin: 12px 0;
+  padding: 10px 16px;
+  border-left: 3px solid #5ba3c0;
+  background: #242424;
+  border-radius: 0 4px 4px 0;
+  color: #ccc;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
 a { color: #74C0FC; text-decoration: none; font-weight: 700; }
 a:hover { text-decoration: underline; }
 
@@ -407,6 +431,9 @@ code {
   border-radius: 3px;
   padding: 1px 5px;
   color: #c9d1d9;
+}
+strong code, b code {
+  color: #9CDCFE;
 }
 
 pre {
